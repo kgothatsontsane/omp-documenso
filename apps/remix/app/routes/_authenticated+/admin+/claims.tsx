@@ -1,5 +1,7 @@
 import { useDebouncedValue } from '@documenso/lib/client-only/hooks/use-debounced-value';
 import { LicenseClient } from '@documenso/lib/server-only/license/license-client';
+import type { TLicenseClaim } from '@documenso/lib/types/license';
+import { SUBSCRIPTION_CLAIM_FEATURE_FLAGS } from '@documenso/lib/types/subscription';
 import { Input } from '@documenso/ui/primitives/input';
 import { useLingui } from '@lingui/react/macro';
 import { useEffect, useState } from 'react';
@@ -13,9 +15,15 @@ import type { Route } from './+types/claims';
 
 export async function loader() {
   const licenseData = await LicenseClient.getInstance()?.getCachedLicense();
+  const licenseFlags = licenseData?.license?.flags;
+
+  // When no license is configured, treat all enterprise features as unrestricted.
+  const effectiveFlags = licenseFlags
+    ? licenseFlags
+    : (Object.fromEntries(Object.keys(SUBSCRIPTION_CLAIM_FEATURE_FLAGS).map((key) => [key, true])) as TLicenseClaim);
 
   return {
-    licenseFlags: licenseData?.license?.flags,
+    licenseFlags: effectiveFlags,
   };
 }
 

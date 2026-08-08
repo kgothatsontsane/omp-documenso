@@ -53,9 +53,15 @@ import type { Route } from './+types/organisations.$id';
 
 export async function loader() {
   const licenseData = await LicenseClient.getInstance()?.getCachedLicense();
+  const licenseFlags = licenseData?.license?.flags;
+
+  // When no license is configured, treat all enterprise features as unrestricted.
+  const effectiveFlags = licenseFlags
+    ? licenseFlags
+    : (Object.fromEntries(Object.keys(SUBSCRIPTION_CLAIM_FEATURE_FLAGS).map((key) => [key, true])) as TLicenseClaim);
 
   return {
-    licenseFlags: licenseData?.license?.flags,
+    licenseFlags: effectiveFlags,
   };
 }
 
@@ -334,6 +340,11 @@ export default function OrganisationGroupSettingsPage({ params, loaderData }: Ro
                   <span className="h-2 w-2 shrink-0 rounded-full bg-green-600 dark:bg-green-400" aria-hidden="true" />
                 )}
                 <span>{i18n._(SUBSCRIPTION_STATUS_MAP[organisation.subscription.status])} subscription found</span>
+              </span>
+            ) : organisation.organisationClaim?.originalSubscriptionClaimId === 'enterprise' ? (
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-purple-600 dark:bg-purple-400" aria-hidden="true" />
+                <span>Enterprise subscription active</span>
               </span>
             ) : (
               <span>
