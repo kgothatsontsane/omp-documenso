@@ -1,4 +1,5 @@
 import { ZFindResultResponse, ZFindSearchParamsSchema } from '@documenso/lib/types/search-params';
+import OrganisationClaimSchema from '@documenso/prisma/generated/zod/modelSchema/OrganisationClaimSchema';
 import OrganisationSchema from '@documenso/prisma/generated/zod/modelSchema/OrganisationSchema';
 import SubscriptionSchema from '@documenso/prisma/generated/zod/modelSchema/SubscriptionSchema';
 import UserSchema from '@documenso/prisma/generated/zod/modelSchema/UserSchema';
@@ -34,6 +35,12 @@ export const ZFindAdminOrganisationsResponseSchema = ZFindResultResponse.extend(
         updatedAt: true,
         cancelAtPeriodEnd: true,
       }).nullable(),
+      organisationClaim: OrganisationClaimSchema.pick({
+        id: true,
+        originalSubscriptionClaimId: true,
+      })
+        .nullable()
+        .optional(),
     })
     .array(),
 });

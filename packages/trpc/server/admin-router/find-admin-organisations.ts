@@ -144,6 +144,12 @@ export const findAdminOrganisations = async ({
           },
         },
         subscription: true,
+        organisationClaim: {
+          select: {
+            id: true,
+            originalSubscriptionClaimId: true,
+          },
+        },
       },
     }),
     prisma.organisation.count({

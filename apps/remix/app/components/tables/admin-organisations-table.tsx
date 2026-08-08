@@ -107,14 +107,22 @@ export const AdminOrganisationsTable = ({
         cell: ({ row }) => {
           const subscription = row.original.subscription;
           const isPaid = subscription && subscription.status === 'ACTIVE';
+          const claim = row.original.organisationClaim?.originalSubscriptionClaimId;
+          const isEnterprise = claim === 'enterprise';
           return (
             <div
               className={`inline-flex items-center rounded-full px-2 py-1 font-medium text-xs ${
-                isPaid ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                isPaid
+                  ? 'bg-green-100 text-green-800'
+                  : isEnterprise
+                    ? 'bg-purple-100 text-purple-800'
+                    : 'bg-gray-100 text-gray-800'
               }`}
             >
               {isPaid ? (
                 <Trans context="Subscription status">Paid</Trans>
+              ) : isEnterprise ? (
+                <Trans context="Subscription status">Enterprise</Trans>
               ) : (
                 <Trans context="Subscription status">Free</Trans>
               )}
@@ -134,6 +142,8 @@ export const AdminOrganisationsTable = ({
               {i18n._(SUBSCRIPTION_STATUS_MAP[row.original.subscription.status])}
               <ExternalLinkIcon className="h-4 w-4" />
             </Link>
+          ) : row.original.organisationClaim?.originalSubscriptionClaimId === 'enterprise' ? (
+            <Badge variant="neutral">Enterprise</Badge>
           ) : (
             <Trans>None</Trans>
           ),
