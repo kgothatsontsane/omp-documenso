@@ -81,7 +81,7 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
     <Sheet open={isMenuOpen} onOpenChange={onMenuOpenChange}>
       <SheetContent className="flex w-full max-w-[350px] flex-col">
         <Link to="/" onClick={handleMenuItemClick}>
-          <BrandingLogo className="h-6 w-auto" />
+          <BrandingLogo className="h-10 w-auto" />
         </Link>
 
         <div className="mt-8 flex w-full flex-col items-start gap-y-4">
