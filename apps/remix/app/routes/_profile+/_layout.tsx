@@ -1,4 +1,3 @@
-import LogoIcon from '@documenso/assets/logo_icon.png';
 import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
@@ -48,17 +47,9 @@ export default function PublicProfileLayout() {
           <div className="mx-auto flex w-full max-w-screen-xl items-center justify-between gap-x-4 px-4 md:px-8">
             <Link
               to="/"
-              className="rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:inline"
+              className="rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <BrandingLogo className="hidden h-6 w-auto sm:block" />
-
-              <img
-                src={LogoIcon}
-                alt="Documenso Logo"
-                width={48}
-                height={48}
-                className="h-10 w-auto sm:hidden dark:invert"
-              />
+              <BrandingLogo className="h-6 w-auto" />
             </Link>
 
             <div className="flex flex-row items-center justify-center">
