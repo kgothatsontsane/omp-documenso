@@ -49,7 +49,7 @@ export default function PublicProfileLayout() {
               to="/"
               className="rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <BrandingLogo className="h-10 w-auto" />
+              <BrandingLogo className="h-12 w-auto" />
             </Link>
 
             <div className="flex flex-row items-center justify-center">
