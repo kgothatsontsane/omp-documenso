@@ -118,7 +118,7 @@ app.route('/api/csc', csc);
 // API servers.
 app.route('/api/v1', tsRestHonoApp);
 app.use('/api/jobs/*', jobsClient.getApiHandler());
-app.get('/api/cron/*', cronHandler);
+app.get('/api/cron/sweeps', cronHandler);
 
 app.use('/api/trpc/*', trpcRateLimitMiddleware);
 app.use('/api/trpc/*', reactRouterTrpcServer);
