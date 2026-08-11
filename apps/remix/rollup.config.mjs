@@ -12,7 +12,7 @@ const config = {
    * We specifically target the router.ts instead of the entry point so the rollup doesn't go through the
    * already prebuilt RR7 server files.
    */
-  input: ['server/router.ts', 'server/api/cron/index.ts'],
+  input: 'server/router.ts',
   output: {
     dir: 'build/server/hono',
     format: 'esm',

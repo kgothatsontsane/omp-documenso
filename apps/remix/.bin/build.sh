@@ -24,6 +24,7 @@ npm run build:app
 
 echo "[Build]: Building server"
 npm run build:server
+npm run build:cron
 
 # Copy over the entry point for the server.
 cp server/main.js build/server/main.js

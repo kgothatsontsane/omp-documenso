@@ -7,7 +7,7 @@
     },
     "api/cron.mjs": {
       "maxDuration": 60,
-      "includeFiles": "api/build/server/**"
+      "includeFiles": "api/cron-build/**"
     }
   },
   "rewrites": [
