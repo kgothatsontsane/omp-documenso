@@ -14,7 +14,7 @@ trap 'cd "$ORIGINAL_DIR"' EXIT
 
 cd "$WEB_APP_DIR"
 
-rm -rf build ../../api/cron-build
+rm -rf build ../../api/build ../../api/cron-build
 
 start_time=$(date +%s)
 
