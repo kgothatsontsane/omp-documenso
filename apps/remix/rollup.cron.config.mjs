@@ -7,7 +7,7 @@ export default {
     ...config.output,
     dir: '../../api/cron-build',
     preserveModules: false,
-    entryFileNames: 'index.js',
-    chunkFileNames: 'chunks/[name]-[hash].js',
+    entryFileNames: 'index.mjs',
+    chunkFileNames: 'chunks/[name]-[hash].mjs',
   },
 };

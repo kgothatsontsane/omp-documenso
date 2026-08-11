@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 
-const { cronHandler } = await import('./cron-build/index.js');
+const { cronHandler } = await import('./cron-build/index.mjs');
 const app = new Hono();
 
 app.get('/api/cron/sweeps', cronHandler);
