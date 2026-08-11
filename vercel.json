@@ -3,7 +3,7 @@
   "functions": {
     "api/index.mjs": {
       "maxDuration": 60,
-      "includeFiles": ["api/build/server/**", "apps/remix/public/**"]
+      "includeFiles": "api/build/server/**"
     },
     "api/cron.mjs": {
       "maxDuration": 60,
