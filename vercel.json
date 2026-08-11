@@ -4,7 +4,14 @@
     "api/index.mjs": {
       "maxDuration": 60,
       "includeFiles": "api/build/**"
+    },
+    "api/cron.mjs": {
+      "maxDuration": 60,
+      "includeFiles": "api/build/server/**"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+  "rewrites": [
+    { "source": "/api/cron/sweeps", "destination": "/api/cron" },
+    { "source": "/(.*)", "destination": "/api" }
+  ]
 }
