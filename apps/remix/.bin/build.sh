@@ -14,6 +14,8 @@ trap 'cd "$ORIGINAL_DIR"' EXIT
 
 cd "$WEB_APP_DIR"
 
+rm -rf build ../../api/cron-build
+
 start_time=$(date +%s)
 
 echo "[Build]: Extracting and compiling translations"
