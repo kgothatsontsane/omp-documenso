@@ -25,6 +25,7 @@ import { requestId } from 'hono/request-id';
 import type { Logger } from 'pino';
 
 import { aiRoute } from './api/ai/route';
+import { cronHandler } from './api/cron';
 import { downloadRoute } from './api/download/download';
 import { filesRoute } from './api/files/files';
 import { type AppContext, appContext } from './context';
@@ -117,6 +118,7 @@ app.route('/api/csc', csc);
 // API servers.
 app.route('/api/v1', tsRestHonoApp);
 app.use('/api/jobs/*', jobsClient.getApiHandler());
+app.get('/api/cron/*', cronHandler);
 
 app.use('/api/trpc/*', trpcRateLimitMiddleware);
 app.use('/api/trpc/*', reactRouterTrpcServer);
@@ -143,18 +145,24 @@ app.use(`/api/v2-beta/*`, async (c) =>
 
 // Start telemetry client for anonymous usage tracking.
 // Can be disabled by setting DOCUMENSO_DISABLE_TELEMETRY=true
-if (env('NODE_ENV') !== 'development') {
+if (env('NODE_ENV') !== 'development' && !env('VERCEL')) {
   void TelemetryClient.start();
 }
 
 // Start license client to verify license on startup.
-void LicenseClient.start();
+if (!env('VERCEL')) {
+  void LicenseClient.start();
+}
 
 // Start cron scheduler for background jobs (e.g. envelope expiration sweep).
 // No-op for Inngest provider which handles cron externally.
-jobsClient.startCron();
+if (env('VERCEL')) {
+  jobsClient.startCron();
+}
 
-void migrateDeletedAccountServiceAccount();
-void migrateLegacyServiceAccount();
+if (!env('VERCEL')) {
+  void migrateDeletedAccountServiceAccount();
+  void migrateLegacyServiceAccount();
+}
 
 export default app;
