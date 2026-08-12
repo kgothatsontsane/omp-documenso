@@ -8,7 +8,6 @@ app.use(
   '*',
   serveStatic({
     root: path.join(process.cwd(), 'api/build/client'),
-    rewriteRequestPath: (requestPath) => requestPath.replace(/^\/api\/static/, ''),
   }),
 );
 
