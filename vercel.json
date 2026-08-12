@@ -10,8 +10,9 @@
       "includeFiles": "api/cron-build/**"
     }
   },
-  "rewrites": [
-    { "source": "/api/cron/sweeps", "destination": "/api/cron" },
-    { "source": "/(.*)", "destination": "/api" }
+  "routes": [
+    { "src": "/api/cron/sweeps", "dest": "/api/cron" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/api" }
   ]
 }
