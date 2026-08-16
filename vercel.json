@@ -17,6 +17,7 @@
   "routes": [
     { "src": "/api/cron/sweeps", "dest": "/api/cron" },
     { "src": "/assets/(.*)", "dest": "/api/static" },
+    { "src": "/fonts/(.*)", "dest": "/api/static" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api" }
   ]
