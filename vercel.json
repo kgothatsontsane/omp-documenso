@@ -5,17 +5,12 @@
       "maxDuration": 60,
       "includeFiles": "api/build/server/**"
     },
-    "api/cron.mjs": {
-      "maxDuration": 60,
-      "includeFiles": "api/cron-build/**"
-    },
     "api/static.mjs": {
       "maxDuration": 60,
       "includeFiles": "api/build/client/**"
     }
   },
   "routes": [
-    { "src": "/api/cron/sweeps", "dest": "/api/cron" },
     { "src": "/assets/(.*)", "dest": "/api/static" },
     { "src": "/fonts/(.*)", "dest": "/api/static" },
     { "handle": "filesystem" },

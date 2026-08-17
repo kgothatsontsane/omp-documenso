@@ -14,7 +14,7 @@ trap 'cd "$ORIGINAL_DIR"' EXIT
 
 cd "$WEB_APP_DIR"
 
-rm -rf build ../../api/build ../../api/cron-build
+rm -rf build ../../api/build
 
 start_time=$(date +%s)
 
@@ -26,7 +26,6 @@ npm run build:app
 
 echo "[Build]: Building server"
 npm run build:server
-npm run build:cron
 
 # Copy over the entry point for the server.
 cp server/main.js build/server/main.js

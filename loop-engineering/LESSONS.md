@@ -33,4 +33,13 @@ Template:
 - **What happened:** Cold starts on Vercel Hobby exceed 30s page-load timeouts occasionally.
 - **Move/cost:** Verification.
 - **Change to make:** In evaluator, retry/wait-once for cold start before judging the page broken.
+- **What happened:** trigger.dev esbuild bundling of the sweep handlers failed on native/asset modules (skia-canvas .node, playwright/chromium-bidi, .po files) and then on externalized @prisma/client ESM named-export interop.
+- **Move/cost:** Verification debt — repeated deploy cycles on the same bundle.
+- **Change to make:** Keep native/asset packages external in trigger.config.ts build.external; NEVER externalize @prisma/client (bundle it so esbuild does CJS->ESM interop; keep @prisma/engines external for platform binaries); stub .po files via an esbuildPlugin onLoad since prod uses compiled .mjs. Verify with a local `npx esbuild --bundle` of the task file BEFORE deploying.
+- **What happened:** The trigger.dev runs verification API rabbit-hole (runs endpoints 401/500/"Invalid user-actor token") cost many cycles.
+- **Move/cost:** Verification.
+- **Change to make:** Use the SDK directly: `configure({ secretKey: TRIGGER_PAT })` then `runs.list('<projectRef>', { env: 'prod', limit })` — the first string arg is projectRef, NOT env. Works with the stored personal access token.
+- **What happened:** Vercel cron endpoint /api/cron/sweeps and cron-job.org job were the sweep triggers; sweeps consumed Hobby CPU at the 4 CPU-hr/month ceiling.
+- **Move/cost:** Scheduling (externalized).
+- **Change to make:** Move recurring DB sweeps to trigger.dev schedules.task with cron + timezone; verify runs via SDK; then remove the Vercel cron function (vercel.json function+route, build.sh build:cron, api/cron.mjs, rollup.cron.config.mjs) and disable cron-job.org job via PATCH /jobs/{id} {"job":{"enabled":false}}.
 
