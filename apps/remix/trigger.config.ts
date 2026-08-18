@@ -1,5 +1,6 @@
 import { esbuildPlugin } from '@trigger.dev/build/extensions';
 import { syncVercelEnvVars } from '@trigger.dev/build/extensions/core';
+import { prismaExtension } from '@trigger.dev/build/extensions/prisma';
 import { defineConfig } from '@trigger.dev/sdk';
 import type { Plugin } from 'esbuild';
 
@@ -54,6 +55,17 @@ export default defineConfig({
       syncVercelEnvVars({
         projectId: 'prj_JHJK5nzAnH5kBO1Iyz0JCjo4Ajwy',
         vercelTeamId: 'team_mLc5syhhwDuEIz6BLsD2WqVc',
+      }),
+      // Regenerate the Prisma client for the trigger.dev Linux runtime and
+      // install the matching query engine. Without this, the bundled client
+      // (generated for darwin locally) cannot locate the debian engine.
+      prismaExtension({
+        mode: 'legacy',
+        schema: '../../packages/prisma/schema.prisma',
+        directUrlEnvVarName: 'NEXT_PRIVATE_DIRECT_DATABASE_URL',
+        // Only regenerate the Prisma client. The schema also has kysely/json/zod
+        // generators whose binaries aren't in the trigger.dev build image.
+        clientGenerator: 'client',
       }),
       // i18n-server dynamic-imports web.po in dev and web.mjs in prod; esbuild
       // tries to resolve the .po sibling. In prod the compiled .mjs is used, so

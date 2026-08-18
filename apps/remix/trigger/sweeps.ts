@@ -38,10 +38,14 @@ export const sweeps = schedules.task({
     timezone: 'Africa/Johannesburg',
   },
   run: async () => {
+    const results: Record<string, string> = {};
+
     for (const [name, run] of runs) {
       try {
         await run({ payload: {}, io });
+        results[name] = 'ok';
       } catch (err) {
+        results[name] = `FAIL: ${err instanceof Error ? err.message : String(err)}`;
         console.error(`[cron] ${name} failed:`, err);
       }
     }
@@ -49,10 +53,12 @@ export const sweeps = schedules.task({
     try {
       await migrateDeletedAccountServiceAccount();
       await migrateLegacyServiceAccount();
+      results['service-account-migrations'] = 'ok';
     } catch (err) {
+      results['service-account-migrations'] = `FAIL: ${err instanceof Error ? err.message : String(err)}`;
       console.error('[cron] service account migration failed:', err);
     }
 
-    return { ok: true };
+    return results;
   },
 });
