@@ -10,6 +10,7 @@ import { match } from 'ts-pattern';
 import { getTimestampAuthority } from './helpers/tsa';
 import { createGoogleCloudSigner } from './transports/google-cloud';
 import { createLocalSigner } from './transports/local';
+import { signWithTrustedSignatures } from './transports/trusted-signatures';
 
 export type SignOptions = {
   pdf: PDF;
@@ -36,6 +37,19 @@ const getSigner = async () => {
 };
 
 export const signPdf = async ({ pdf }: SignOptions) => {
+  const transport = env('NEXT_PRIVATE_SIGNING_TRANSPORT') || 'local';
+
+  // The Trusted Signatures transport signs at the raw byte level (it builds a
+  // placeholder, sends the digest to the TS API, and splices the returned CMS
+  // into the PDF). libpdf's Signer interface expects raw RSA signature bytes
+  // and builds the CMS itself, so the two are incompatible — handle the TS
+  // transport out-of-band rather than through pdf.sign({ signer }).
+  if (transport === 'trusted-signatures') {
+    const bytes = await pdf.save();
+
+    return signWithTrustedSignatures({ pdf: Buffer.from(bytes) });
+  }
+
   const signer = await getSigner();
 
   const tsa = getTimestampAuthority();

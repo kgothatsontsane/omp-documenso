@@ -10,3 +10,4 @@
 | CSS/JS assets return 200 (verified); custom logo 200 image/png | curl checks | done | DONE |
 | Sweeps endpoint: auth 200 {"ok":true}, bad token 401, 25 rate-limit rows cleaned | vercel logs | done | SUPERSEDED — endpoint removed from Vercel, sweeps run on trigger.dev |
 | Function sizes split: /api 86.12MB, /api/cron 45.91MB, /api/static 63.51MB | vercel deploy | done | DONE — /api/cron now removed entirely, only 2 functions remain |
+| Trusted Signatures integration (trusted-signatures transport) | user requirement | high | DONE — ported transport + helpers, verified end-to-end signing works |

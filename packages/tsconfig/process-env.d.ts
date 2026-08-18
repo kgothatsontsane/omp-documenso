@@ -37,7 +37,7 @@ declare namespace NodeJS {
     NEXT_PRIVATE_UPLOAD_AZURE_CONTAINER?: string;
     NEXT_PRIVATE_UPLOAD_AZURE_ENDPOINT?: string;
 
-    NEXT_PRIVATE_SIGNING_TRANSPORT?: 'local' | 'http' | 'gcloud-hsm' | 'csc';
+    NEXT_PRIVATE_SIGNING_TRANSPORT?: 'local' | 'http' | 'gcloud-hsm' | 'csc' | 'trusted-signatures';
     /**
      * Derived from `NEXT_PRIVATE_SIGNING_TRANSPORT` in `createPublicEnv()`; do
      * not set manually. Lets the client detect CSC mode for authoring UI gating.
@@ -59,6 +59,8 @@ declare namespace NodeJS {
     NEXT_PRIVATE_SIGNING_CSC_OAUTH_CLIENT_SECRET?: string;
     NEXT_PRIVATE_SIGNING_CSC_SIGNATURE_LEVEL?: 'AES' | 'QES';
     NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY?: string;
+    NEXT_PRIVATE_SIGNING_TS_API_KEY_ID?: string;
+    NEXT_PRIVATE_SIGNING_TS_API_KEY?: string;
     NEXT_PUBLIC_SIGNING_CONTACT_INFO?: string;
     NEXT_PRIVATE_USE_LEGACY_SIGNING_SUBFILTER?: string;
 

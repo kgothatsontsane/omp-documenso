@@ -51,4 +51,13 @@ Template:
 - **What happened:** Vercel cron endpoint /api/cron/sweeps and cron-job.org job were the sweep triggers; sweeps consumed Hobby CPU at the 4 CPU-hr/month ceiling.
 - **Move/cost:** Scheduling (externalized).
 - **Change to make:** Move recurring DB sweeps to trigger.dev schedules.task with cron + timezone; verify runs via SDK; then remove the Vercel cron function (vercel.json function+route, build.sh build:cron, api/cron.mjs, rollup.cron.config.mjs) and disable cron-job.org job via PATCH /jobs/{id} {"job":{"enabled":false}}.
+- **What happened:** Vercel `env pull` redacts sensitive env vars to `[SENSITIVE]` placeholders, so importing that dump into trigger.dev uploaded placeholders instead of real secrets — sweeps silently failed (Prisma URL validation error) while runs showed COMPLETED.
+- **Move/cost:** Verification debt / secrets handling.
+- **Change to make:** Never import Vercel's env dump for secrets — it redacts sensitive values. Get real values from the user/dashboard and upload via `POST /api/v1/projects/{ref}/envvars/{env}/import` with the personal access token. Verify with per-sweep result output, not run status.
+- **What happened:** Trusted Signatures returns a complete CMS/PKCS#7 signature, but libpdf's `Signer` interface expects raw RSA signature bytes (libpdf builds the CMS). The two are incompatible — you cannot pass TS's CMS into libpdf's `Signer` interface.
+- **Move/cost:** Architecture mismatch / Verification.
+- **Change to make:** Do NOT try to wrap TS as a libpdf `Signer`. Instead, port the TS fork's byte-level transport (`trusted-signatures.ts` + `addSigningPlaceholder`/`updateSigningPlaceholder` helpers) which operates at the Buffer level: serialize the libpdf `PDF` to bytes, build the placeholder, send the digest to TS API, splice the returned CMS into the `/Contents` placeholder. This bypasses libpdf's `Signer` entirely for the TS transport.
+- **What happened:** The Prisma client was built for `darwin` but trigger.dev runs `debian-openssl-3.0.x` — query engine not found in the cloud.
+- **Move/cost:** Verification / cross-platform binary target.
+- **Change to make:** Use `prismaExtension({ mode: 'legacy', schema, directUrlEnvVarName, clientGenerator: 'client' })` — regenerates the Prisma client with the cloud's Linux engine and installs the debian-openssl-3.0.x binary. MUST set `clientGenerator: 'client'` or `prisma generate` runs the schema's kysely/json/zod generators whose binaries aren't in the build image. Pass `DATABASE_URL` + `NEXT_PRIVATE_DIRECT_DATABASE_URL` as env to the deploy command.
 
