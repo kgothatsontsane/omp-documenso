@@ -52,7 +52,8 @@ export const createPublicEnv = () => ({
   // real server-side configuration. Placed last so it wins over any literal
   // env var with the same name.
   // The `? 'true' : 'false'` might seem dumb but it's because we're expecting env var strings.
-  NEXT_PUBLIC_DOCUMENT_CONVERSION_ENABLED: process.env.NEXT_PRIVATE_DOCUMENT_CONVERSION_URL ? 'true' : 'false',
+  NEXT_PUBLIC_DOCUMENT_CONVERSION_ENABLED:
+    process.env.NEXT_PRIVATE_DOCUMENT_CONVERSION_URL || process.env.CONVERT_API_SECRET ? 'true' : 'false',
   // Derived from the private transport so the client can detect CSC mode for
   // authoring UI gating without exposing the raw transport value.
   NEXT_PUBLIC_SIGNING_TRANSPORT_IS_CSC: process.env.NEXT_PRIVATE_SIGNING_TRANSPORT === 'csc' ? 'true' : 'false',

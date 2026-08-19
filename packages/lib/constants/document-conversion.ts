@@ -14,7 +14,7 @@ const DEFAULT_DOCUMENT_CONVERSION_TIMEOUT_MS = 30_000;
  */
 export const IS_DOCUMENT_CONVERSION_ENABLED = (): boolean => {
   if (typeof window === 'undefined') {
-    return !!env('NEXT_PRIVATE_DOCUMENT_CONVERSION_URL');
+    return !!env('NEXT_PRIVATE_DOCUMENT_CONVERSION_URL') || !!env('CONVERT_API_SECRET');
   }
 
   return env('NEXT_PUBLIC_DOCUMENT_CONVERSION_ENABLED') === 'true';
