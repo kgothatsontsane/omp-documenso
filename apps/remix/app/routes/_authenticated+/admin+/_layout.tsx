@@ -10,6 +10,7 @@ import {
   BarChart3,
   Building2Icon,
   FileStack,
+  Gauge,
   LineChartIcon,
   MailIcon,
   Settings,
@@ -68,6 +69,17 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
             <Link to="/admin/stats">
               <BarChart3 className="mr-2 h-5 w-5" />
               <Trans>Stats</Trans>
+            </Link>
+          </Button>
+
+          <Button
+            variant="ghost"
+            className={cn('justify-start md:w-full', pathname?.startsWith('/admin/observability') && 'bg-secondary')}
+            asChild
+          >
+            <Link to="/admin/observability">
+              <Gauge className="mr-2 h-5 w-5" />
+              <Trans>Observability</Trans>
             </Link>
           </Button>
 

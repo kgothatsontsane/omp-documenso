@@ -13,6 +13,7 @@
   "routes": [
     { "src": "/assets/(.*)", "dest": "/api/static" },
     { "src": "/fonts/(.*)", "dest": "/api/static" },
+    { "src": "/static/(.*)", "dest": "/api/static" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api" }
   ]

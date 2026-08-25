@@ -12,7 +12,7 @@ const badgeVariants = cva('inline-flex items-center rounded-md text-xs font-medi
       warning:
         'bg-yellow-50 text-yellow-800 ring-yellow-600/20 dark:bg-yellow-400/10 dark:text-yellow-500 dark:ring-yellow-400/20',
       default:
-        'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400 dark:ring-green-500/20',
+        'bg-neutral-100 text-neutral-700 ring-neutral-400/30 dark:bg-neutral-800/40 dark:text-neutral-400 dark:ring-neutral-700/30',
       secondary:
         'bg-blue-50 text-blue-700 ring-blue-700/10 dark:bg-blue-400/10 dark:text-blue-400 dark:ring-blue-400/30',
       orange:

@@ -1262,6 +1262,34 @@ model Counter {
   value Int
 }
 
+model DocumentConversionLog {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  success      Boolean
+  transport    String
+  durationMs   Int?
+  inputBytes   Int?
+  outputBytes  Int?
+  errorCode    String?
+  errorMessage String?
+
+  @@index([createdAt])
+  @@index([success])
+  @@index([transport])
+}
+
+model TriggerUsageRecord {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  taskId       String
+  runId        String?
+  costInCents  Float
+  durationMs   Int?
+
+  @@index([createdAt])
+  @@index([taskId])
+}
+
 model RateLimit {
   key    String
   action String

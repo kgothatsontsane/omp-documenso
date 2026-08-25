@@ -133,7 +133,7 @@ export default function VerifyEmailPage({ loaderData }: Route.ComponentProps) {
       <div className="w-screen max-w-lg px-4">
         <div className="flex w-full items-start">
           <div className="mt-1 mr-4 hidden md:block">
-            <CheckCircle2 className="h-10 w-10 text-green-500" strokeWidth={2} />
+            <CheckCircle2 className="h-10 w-10 text-black" strokeWidth={2} />
           </div>
 
           <div>
@@ -142,7 +142,9 @@ export default function VerifyEmailPage({ loaderData }: Route.ComponentProps) {
             </h2>
 
             <p className="mt-4 text-muted-foreground">
-              <Trans>Your email has been successfully confirmed! You can now use all features of Documenso.</Trans>
+              <Trans>
+                Your email has been successfully confirmed! You can now use all features of Open Mic Productions.
+              </Trans>
             </p>
 
             <Button className="mt-4" asChild>
@@ -158,7 +160,7 @@ export default function VerifyEmailPage({ loaderData }: Route.ComponentProps) {
       <div className="w-screen max-w-lg px-4">
         <div className="flex w-full items-start">
           <div className="mt-1 mr-4 hidden md:block">
-            <CheckCircle2 className="h-10 w-10 text-green-500" strokeWidth={2} />
+            <CheckCircle2 className="h-10 w-10 text-black" strokeWidth={2} />
           </div>
 
           <div>
@@ -167,7 +169,9 @@ export default function VerifyEmailPage({ loaderData }: Route.ComponentProps) {
             </h2>
 
             <p className="mt-4 text-muted-foreground">
-              <Trans>Your email has already been confirmed. You can now use all features of Documenso.</Trans>
+              <Trans>
+                Your email has already been confirmed. You can now use all features of Open Mic Productions.
+              </Trans>
             </p>
 
             <Button className="mt-4" asChild>

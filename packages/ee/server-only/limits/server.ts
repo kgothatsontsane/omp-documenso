@@ -9,6 +9,12 @@ import { FREE_PLAN_LIMITS, INACTIVE_PLAN_LIMITS, PAID_PLAN_LIMITS, SELFHOSTED_PL
 import { ERROR_CODES } from './errors';
 import type { TLimitsResponseSchema } from './schema';
 
+/**
+ * Envelope item count is no longer enforced. Kept as a large number so the
+ * client-side dropzone doesn't cap the number of files per envelope.
+ */
+const UNLIMITED_ENVELOPE_ITEM_COUNT = Number.MAX_SAFE_INTEGER;
+
 export type GetServerLimitsOptions = {
   userId: number;
   teamId: number;
@@ -42,7 +48,7 @@ export const getServerLimits = async ({ userId, teamId }: GetServerLimitsOptions
   const remaining = structuredClone(FREE_PLAN_LIMITS);
 
   const subscription = organisation.subscription;
-  const maximumEnvelopeItemCount = organisation.organisationClaim.envelopeItemCount;
+  const maximumEnvelopeItemCount = UNLIMITED_ENVELOPE_ITEM_COUNT;
 
   if (!IS_BILLING_ENABLED()) {
     return {

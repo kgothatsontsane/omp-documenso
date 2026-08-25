@@ -1,9 +1,9 @@
 import { prisma } from '@documenso/prisma';
 import { DocumentStatus, SigningStatus } from '@prisma/client';
 
-import { jobs } from '../../client';
 import type { JobRunIO } from '../../client/_internal/job';
 import type { TExpireRecipientsSweepJobDefinition } from './expire-recipients-sweep';
+import { run as processRecipientExpired } from './process-recipient-expired.handler';
 
 export const run = async ({ io }: { payload: TExpireRecipientsSweepJobDefinition; io: JobRunIO }) => {
   const now = new Date();
@@ -36,11 +36,11 @@ export const run = async ({ io }: { payload: TExpireRecipientsSweepJobDefinition
 
   await Promise.allSettled(
     expiredRecipients.map(async (recipient) => {
-      await jobs.triggerJob({
-        name: 'internal.process-recipient-expired',
+      await processRecipientExpired({
         payload: {
           recipientId: recipient.id,
         },
+        io,
       });
     }),
   );

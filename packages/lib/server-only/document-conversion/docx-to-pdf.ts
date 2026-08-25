@@ -1,24 +1,72 @@
 import { AppError } from '@documenso/lib/errors/app-error';
+import { prisma } from '@documenso/prisma';
 import type { Logger } from 'pino';
 
 import {
   DOCUMENT_CONVERSION_MIME_TYPE_DOCX,
   IS_DOCUMENT_CONVERSION_ENABLED,
 } from '../../constants/document-conversion';
-import { isCircuitOpen, recordFailure, recordSuccess } from './circuit-breaker';
-import { convertDocxToPdfViaConvertApi, isConvertApiConfigured } from './convertapi';
-import { convertDocxToPdfViaGotenberg } from './gotenberg';
+import { convertDocxToPdfViaTriggerDev, isTriggerDevConversionConfigured } from './trigger-dev';
 
 type ConvertDocxToPdfOptions = {
   buffer: Buffer;
   filename: string;
 };
 
+type LogConversionOptions = {
+  success: boolean;
+  transport: 'triggerdev';
+  durationMs: number;
+  inputBytes: number;
+  outputBytes?: number;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+const logConversion = async ({
+  success,
+  transport,
+  durationMs,
+  inputBytes,
+  outputBytes,
+  errorCode,
+  errorMessage,
+}: LogConversionOptions): Promise<void> => {
+  try {
+    await prisma.documentConversionLog.create({
+      data: {
+        success,
+        transport,
+        durationMs,
+        inputBytes,
+        outputBytes,
+        errorCode,
+        errorMessage,
+      },
+    });
+  } catch {
+    // Never let observability break a conversion.
+  }
+};
+
+const logAttempt = (logger: Logger | undefined, data: Record<string, unknown>) => {
+  if (data.errorCode === 'CONVERSION_FAILED') {
+    logger?.error({
+      event: 'document_conversion_attempt',
+      ...data,
+    });
+  } else {
+    logger?.info({
+      event: 'document_conversion_attempt',
+      ...data,
+    });
+  }
+};
+
 /**
- * Converts a DOCX buffer to a PDF buffer via the configured Gotenberg
- * conversion service, with a fallback to ConvertAPI.
- * Guards on feature-enabled and circuit-open state,
- * and emits a structured log line for each attempt.
+ * Converts a DOCX buffer to a PDF buffer via the trigger.dev LibreOffice task.
+ * Guards on feature-enabled state, and emits a structured log line plus a
+ * persistent conversion-log row for each attempt.
  */
 export const convertDocxToPdf = async (
   { buffer, filename }: ConvertDocxToPdfOptions,
@@ -32,10 +80,10 @@ export const convertDocxToPdf = async (
     });
   }
 
-  if (isCircuitOpen()) {
+  if (!isTriggerDevConversionConfigured()) {
     throw new AppError('CONVERSION_SERVICE_UNAVAILABLE', {
-      message: 'Conversion circuit is open; failing fast',
-      userMessage: 'Document conversion is temporarily unavailable. Please try again shortly or upload a PDF.',
+      message: 'trigger.dev conversion is not configured',
+      userMessage: "Document conversion isn't enabled on this instance. Please upload a PDF.",
       statusCode: 503,
     });
   }
@@ -43,14 +91,20 @@ export const convertDocxToPdf = async (
   const startedAt = Date.now();
 
   try {
-    const outputBuffer = await convertDocxToPdfViaGotenberg({ buffer, filename });
+    const outputBuffer = await convertDocxToPdfViaTriggerDev({ buffer, filename });
 
-    recordSuccess();
-
-    logger?.info({
-      event: 'document_conversion_attempt',
+    logAttempt(logger, {
       filename,
       sourceMimeType: DOCUMENT_CONVERSION_MIME_TYPE_DOCX,
+      durationMs: Date.now() - startedAt,
+      inputBytes: buffer.byteLength,
+      outputBytes: outputBuffer.byteLength,
+      transport: 'triggerdev',
+    });
+
+    await logConversion({
+      success: true,
+      transport: 'triggerdev',
       durationMs: Date.now() - startedAt,
       inputBytes: buffer.byteLength,
       outputBytes: outputBuffer.byteLength,
@@ -58,64 +112,10 @@ export const convertDocxToPdf = async (
 
     return outputBuffer;
   } catch (err) {
-    recordFailure();
-
-    // Try fallback to ConvertAPI if Gotenberg fails
-    if (isConvertApiConfigured()) {
-      logger?.info({
-        event: 'document_conversion_fallback',
-        filename,
-        reason: err instanceof Error ? err.message : String(err),
-      });
-
-      try {
-        const outputBuffer = await convertDocxToPdfViaConvertApi({ buffer, filename });
-
-        recordSuccess();
-
-        logger?.info({
-          event: 'document_conversion_attempt',
-          filename,
-          sourceMimeType: DOCUMENT_CONVERSION_MIME_TYPE_DOCX,
-          durationMs: Date.now() - startedAt,
-          inputBytes: buffer.byteLength,
-          outputBytes: outputBuffer.byteLength,
-          fallback: true,
-        });
-
-        return outputBuffer;
-      } catch (fallbackErr) {
-        recordFailure();
-
-        const errMessage = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-        const errCode = fallbackErr instanceof AppError ? fallbackErr.code : 'UNKNOWN';
-
-        const logData = {
-          event: 'document_conversion_attempt',
-          filename,
-          sourceMimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          durationMs: Date.now() - startedAt,
-          inputBytes: buffer.byteLength,
-          failed: true,
-          errorCode: errCode,
-          error: errMessage,
-        };
-
-        if (errCode === 'CONVERSION_FAILED') {
-          logger?.error(logData);
-        } else {
-          logger?.info(logData);
-        }
-
-        throw fallbackErr;
-      }
-    }
-
     const errMessage = err instanceof Error ? err.message : String(err);
     const errCode = err instanceof AppError ? err.code : 'UNKNOWN';
 
-    const logData = {
-      event: 'document_conversion_attempt',
+    logAttempt(logger, {
       filename,
       sourceMimeType: DOCUMENT_CONVERSION_MIME_TYPE_DOCX,
       durationMs: Date.now() - startedAt,
@@ -123,13 +123,16 @@ export const convertDocxToPdf = async (
       failed: true,
       errorCode: errCode,
       error: errMessage,
-    };
+    });
 
-    if (errCode === 'CONVERSION_FAILED') {
-      logger?.error(logData);
-    } else {
-      logger?.info(logData);
-    }
+    await logConversion({
+      success: false,
+      transport: 'triggerdev',
+      durationMs: Date.now() - startedAt,
+      inputBytes: buffer.byteLength,
+      errorCode: errCode,
+      errorMessage: errMessage,
+    });
 
     throw err;
   }

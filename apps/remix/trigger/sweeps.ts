@@ -5,6 +5,7 @@ import { run as expireRecipientsSweep } from '@documenso/lib/jobs/definitions/in
 import { run as sealDocumentSweep } from '@documenso/lib/jobs/definitions/internal/seal-document-sweep.handler';
 import { run as sendSigningRemindersSweep } from '@documenso/lib/jobs/definitions/internal/send-signing-reminders-sweep.handler';
 import { run as syncEmailDomains } from '@documenso/lib/jobs/definitions/internal/sync-email-domains.handler';
+import { recordTriggerUsage } from '@documenso/lib/server-only/trigger-usage/record-usage';
 import { migrateDeletedAccountServiceAccount } from '@documenso/lib/server-only/user/service-accounts/deleted-account';
 import { migrateLegacyServiceAccount } from '@documenso/lib/server-only/user/service-accounts/legacy-service-account';
 import { schedules } from '@trigger.dev/sdk';
@@ -37,7 +38,8 @@ export const sweeps = schedules.task({
     pattern: '0,15,30,45 * * * *',
     timezone: 'Africa/Johannesburg',
   },
-  run: async () => {
+  run: async (_, { ctx }) => {
+    const startedAt = Date.now();
     const results: Record<string, string> = {};
 
     for (const [name, run] of runs) {
@@ -58,6 +60,8 @@ export const sweeps = schedules.task({
       results['service-account-migrations'] = `FAIL: ${err instanceof Error ? err.message : String(err)}`;
       console.error('[cron] service account migration failed:', err);
     }
+
+    await recordTriggerUsage('documenso-sweeps', ctx.run.id, Date.now() - startedAt);
 
     return results;
   },

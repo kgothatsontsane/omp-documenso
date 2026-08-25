@@ -3,8 +3,8 @@ import { DocumentStatus, EnvelopeType, RecipientRole, SigningStatus } from '@pri
 import { DateTime } from 'luxon';
 
 import { mapSecondaryIdToDocumentId } from '../../../utils/envelope';
-import { jobs } from '../../client';
 import type { JobRunIO } from '../../client/_internal/job';
+import { run as sealDocument } from './seal-document.handler';
 import type { TSealDocumentSweepJobDefinition } from './seal-document-sweep';
 
 export const run = async ({ io }: { payload: TSealDocumentSweepJobDefinition; io: JobRunIO }) => {
@@ -90,12 +90,12 @@ export const run = async ({ io }: { payload: TSealDocumentSweepJobDefinition; io
 
       io.logger.info(`Triggering seal for document ${documentId} (${envelope.id})`);
 
-      await jobs.triggerJob({
-        name: 'internal.seal-document',
+      await sealDocument({
         payload: {
           documentId,
           isResealing: true,
         },
+        io,
       });
     }),
   );

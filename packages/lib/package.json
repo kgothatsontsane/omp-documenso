@@ -41,6 +41,7 @@
     "@simplewebauthn/server": "^13.2.2",
     "@sindresorhus/slugify": "^3.0.0",
     "@team-plain/typescript-sdk": "^5.11.0",
+    "@trigger.dev/sdk": "4.5.12",
     "@vvo/tzdb": "^6.196.0",
     "ai": "^5.0.104",
     "bullmq": "^5.71.1",

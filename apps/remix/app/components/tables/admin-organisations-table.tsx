@@ -113,7 +113,7 @@ export const AdminOrganisationsTable = ({
             <div
               className={`inline-flex items-center rounded-full px-2 py-1 font-medium text-xs ${
                 isPaid
-                  ? 'bg-green-100 text-green-800'
+                  ? 'bg-neutral-200 text-neutral-800'
                   : isEnterprise
                     ? 'bg-purple-100 text-purple-800'
                     : 'bg-gray-100 text-gray-800'

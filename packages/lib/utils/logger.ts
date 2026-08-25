@@ -26,15 +26,23 @@ if (loggingFilePath) {
   });
 }
 
-export const logger = pino({
-  level: 'info',
-  transport:
-    transports.length > 0
-      ? {
-          targets: transports,
-        }
-      : undefined,
-});
+export const logger = (() => {
+  try {
+    return pino({
+      level: 'info',
+      transport:
+        transports.length > 0
+          ? {
+              targets: transports,
+            }
+          : undefined,
+    });
+  } catch {
+    // Transport targets may be unresolvable in restricted runtimes (e.g. a
+    // serverless build container) — fall back to plain JSON logging.
+    return pino({ level: 'info' });
+  }
+})();
 
 export const logDocumentAccess = ({
   request,

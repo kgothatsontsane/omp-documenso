@@ -1,5 +1,6 @@
+import path from 'node:path';
 import { esbuildPlugin } from '@trigger.dev/build/extensions';
-import { syncVercelEnvVars } from '@trigger.dev/build/extensions/core';
+import { aptGet, syncVercelEnvVars } from '@trigger.dev/build/extensions/core';
 import { prismaExtension } from '@trigger.dev/build/extensions/prisma';
 import { defineConfig } from '@trigger.dev/sdk';
 import type { Plugin } from 'esbuild';
@@ -10,6 +11,24 @@ const poStubPlugin: Plugin = {
     build.onLoad({ filter: /\.po$/ }, () => ({
       contents: 'export const messages = {};',
       loader: 'js',
+    }));
+  },
+};
+
+// The Lingui macros (`msg`, `t`, `Trans`, `Plural`) are Babel compile-time
+// transforms. The trigger.dev esbuild build cannot run that plugin, so redirect
+// the macro entry points to a runtime shim. English-only emails make literal
+// resolution correct.
+const linguiMacroStubPath = path.resolve(__dirname, './trigger/lingui-macro-stub.ts');
+
+const linguiMacroStubPlugin: Plugin = {
+  name: 'lingui-macro-stub',
+  setup(build) {
+    build.onResolve({ filter: /^@lingui\/(core|react)\/macro$/ }, () => ({
+      path: linguiMacroStubPath,
+    }));
+    build.onResolve({ filter: /^@lingui\/macro$/ }, () => ({
+      path: linguiMacroStubPath,
     }));
   },
 };
@@ -52,6 +71,10 @@ export default defineConfig({
       '@prisma/engines',
     ],
     extensions: [
+      // LibreOffice is needed by the docx-to-pdf conversion task.
+      aptGet({
+        packages: ['libreoffice'],
+      }),
       syncVercelEnvVars({
         projectId: 'prj_JHJK5nzAnH5kBO1Iyz0JCjo4Ajwy',
         vercelTeamId: 'team_mLc5syhhwDuEIz6BLsD2WqVc',
@@ -71,6 +94,7 @@ export default defineConfig({
       // tries to resolve the .po sibling. In prod the compiled .mjs is used, so
       // stub .po as an empty module.
       esbuildPlugin(poStubPlugin),
+      esbuildPlugin(linguiMacroStubPlugin),
     ],
   },
 });

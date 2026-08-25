@@ -5,8 +5,8 @@ import { triggerWebhook } from '../../../server-only/webhooks/trigger/trigger-we
 import { DOCUMENT_AUDIT_LOG_TYPE } from '../../../types/document-audit-logs';
 import { mapEnvelopeToWebhookDocumentPayload, ZWebhookDocumentSchema } from '../../../types/webhook-payload';
 import { createDocumentAuditLogData } from '../../../utils/document-audit-logs';
-import { jobs } from '../../client';
 import type { JobRunIO } from '../../client/_internal/job';
+import { run as sendOwnerRecipientExpiredEmail } from '../emails/send-owner-recipient-expired-email.handler';
 import type { TProcessRecipientExpiredJobDefinition } from './process-recipient-expired';
 
 export const run = async ({ payload, io }: { payload: TProcessRecipientExpiredJobDefinition; io: JobRunIO }) => {
@@ -73,11 +73,11 @@ export const run = async ({ payload, io }: { payload: TProcessRecipientExpiredJo
   });
 
   // Trigger email notification to the document owner.
-  await jobs.triggerJob({
-    name: 'send.owner.recipient.expired.email',
+  await sendOwnerRecipientExpiredEmail({
     payload: {
       recipientId: recipient.id,
       envelopeId: recipient.envelopeId,
     },
+    io,
   });
 };

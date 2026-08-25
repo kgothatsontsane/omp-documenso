@@ -111,7 +111,7 @@ export default function EnvelopeEditorHeader() {
                 )}
                 {envelope.templateType === TemplateType.PUBLIC && (
                   <Badge variant="default" className="shrink-0">
-                    <Globe2Icon className="mr-2 h-4 w-4 text-green-500 dark:text-green-300" />
+                    <Globe2Icon className="mr-2 h-4 w-4 text-black dark:text-neutral-300" />
                     <Trans>Public Template</Trans>
                   </Badge>
                 )}

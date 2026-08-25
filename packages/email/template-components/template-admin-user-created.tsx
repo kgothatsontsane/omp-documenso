@@ -15,11 +15,11 @@ export const TemplateAdminUserCreated = ({ resetPasswordLink, assetBaseUrl }: Te
 
       <Section className="flex-row items-center justify-center">
         <Text className="mx-auto mb-0 max-w-[80%] text-center font-semibold text-foreground text-lg">
-          <Trans>Welcome to Documenso!</Trans>
+          <Trans>Welcome to Open Mic Productions!</Trans>
         </Text>
 
         <Text className="my-1 text-center text-base text-muted-foreground">
-          <Trans>An administrator has created a Documenso account for you.</Trans>
+          <Trans>An administrator has created a Open Mic Productions account for you.</Trans>
         </Text>
 
         <Text className="my-1 text-center text-base text-muted-foreground">
@@ -44,7 +44,7 @@ export const TemplateAdminUserCreated = ({ resetPasswordLink, assetBaseUrl }: Te
           <Text className="text-center text-muted-foreground text-sm">
             <Trans>
               If you didn't expect this account or have any questions, please{' '}
-              <Link href="mailto:support@documenso.com" className="text-primary">
+              <Link href="mailto:support@open-mic.co.za" className="text-primary">
                 contact support
               </Link>
               .

@@ -87,7 +87,7 @@ export const createEnvelopeRouteCaller = async ({
     delegatedDocumentOwner,
   } = payload;
 
-  const { remaining, maximumEnvelopeItemCount } = await getServerLimits({
+  const { remaining } = await getServerLimits({
     userId,
     teamId,
   });
@@ -95,13 +95,6 @@ export const createEnvelopeRouteCaller = async ({
   if (remaining.documents <= 0) {
     throw new AppError(AppErrorCode.LIMIT_EXCEEDED, {
       message: 'You have reached your document limit for this month. Please upgrade your plan.',
-      statusCode: 400,
-    });
-  }
-
-  if (files.length > maximumEnvelopeItemCount) {
-    throw new AppError('ENVELOPE_ITEM_LIMIT_EXCEEDED', {
-      message: `You cannot upload more than ${maximumEnvelopeItemCount} envelope items per envelope`,
       statusCode: 400,
     });
   }
