@@ -1,4 +1,7 @@
-import { NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY } from '@documenso/lib/constants/app';
+import {
+  NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY,
+  NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS,
+} from '@documenso/lib/constants/app';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { HttpTimestampAuthority, type TimestampAuthority } from '@libpdf/core';
 
@@ -53,7 +56,9 @@ export const resolveCscSignTimeTsa = (transport: CscTransport, serviceToken: str
   const envUrls = parseTsaEnv(NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY());
 
   if (envUrls.length > 0) {
-    return new HttpTimestampAuthority(envUrls[0]);
+    return new HttpTimestampAuthority(envUrls[0], {
+      timeout: NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS(),
+    });
   }
 
   // Boot-time guard in `buildCscTransport` should have rejected this

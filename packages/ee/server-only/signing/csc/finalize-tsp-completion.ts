@@ -1,3 +1,4 @@
+import { NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS } from '@documenso/lib/constants/app';
 import type { RequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 import { getFileServerSide } from '@documenso/lib/universal/upload/get-file.server';
 import { putPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
@@ -126,5 +127,7 @@ export const finalizeTspEnvelopeCompletion = async (opts: FinalizeTspEnvelopeCom
  * wrapper if operators need it.
  */
 const buildLibpdfTsa = (tsa: { urls: string[] }): TimestampAuthority => {
-  return new HttpTimestampAuthority(tsa.urls[0]);
+  return new HttpTimestampAuthority(tsa.urls[0], {
+    timeout: NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS(),
+  });
 };

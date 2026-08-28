@@ -37,6 +37,15 @@ export const NEXT_PRIVATE_USE_PLAYWRIGHT_PDF = () => env('NEXT_PRIVATE_USE_PLAYW
 export const NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY = () => env('NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY');
 
 /**
+ * Per-request timeout (ms) for the seal/sign-time RFC 3161 TSA calls made by
+ * `@libpdf/core`'s `HttpTimestampAuthority`. Without this the seal step blocks
+ * indefinitely while waiting on an unreachable/slow TSA, leaving the envelope
+ * stuck in PROCESSING after the last recipient signs. Defaults to 60s.
+ */
+export const NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS = () =>
+  Number(env('NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS')) || 60_000;
+
+/**
  * Whether this Documenso instance is running in CSC (Cloud Signature Consortium) mode.
  *
  * CSC mode routes signing through a third-party Trust Service Provider for

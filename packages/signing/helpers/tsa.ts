@@ -1,4 +1,7 @@
-import { NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY } from '@documenso/lib/constants/app';
+import {
+  NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY,
+  NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS,
+} from '@documenso/lib/constants/app';
 import { HttpTimestampAuthority } from '@libpdf/core';
 import { once } from 'remeda';
 
@@ -14,7 +17,9 @@ const setupTimestampAuthorities = once(() => {
     .split(',')
     .filter(Boolean)
     .map((url) => {
-      return new HttpTimestampAuthority(url);
+      return new HttpTimestampAuthority(url, {
+        timeout: NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS(),
+      });
     });
 
   return timestampAuthorities;

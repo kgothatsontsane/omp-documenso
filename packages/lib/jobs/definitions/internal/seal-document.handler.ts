@@ -39,151 +39,283 @@ import type { TSealDocumentJobDefinition } from './seal-document';
 export const run = async ({ payload, io }: { payload: TSealDocumentJobDefinition; io: JobRunIO }) => {
   const { documentId, sendEmail = true, isResealing = false, requestMetadata } = payload;
 
-  const { envelopeId, envelopeStatus, isRejected } = await io.runTask('seal-document', async () => {
-    const envelope = await prisma.envelope.findFirstOrThrow({
-      where: {
-        type: EnvelopeType.DOCUMENT,
-        secondaryId: mapDocumentIdToSecondaryId(documentId),
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
+  try {
+    const { envelopeId, envelopeStatus, isRejected } = await io.runTask('seal-document', async () => {
+      const envelope = await prisma.envelope.findFirstOrThrow({
+        where: {
+          type: EnvelopeType.DOCUMENT,
+          secondaryId: mapDocumentIdToSecondaryId(documentId),
         },
-        documentMeta: true,
-        recipients: true,
-        fields: {
-          include: {
-            signature: true,
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
           },
-        },
-        envelopeItems: {
-          include: {
-            documentData: true,
-            field: {
-              include: {
-                signature: true,
+          documentMeta: true,
+          recipients: true,
+          fields: {
+            include: {
+              signature: true,
+            },
+          },
+          envelopeItems: {
+            include: {
+              documentData: true,
+              field: {
+                include: {
+                  signature: true,
+                },
               },
             },
           },
         },
-      },
-    });
-
-    if (envelope.envelopeItems.length === 0) {
-      throw new Error('At least one envelope item required');
-    }
-
-    const settings = await getTeamSettings({
-      userId: envelope.userId,
-      teamId: envelope.teamId,
-    });
-
-    // Ensure all CC recipients are marked as signed
-    await prisma.recipient.updateMany({
-      where: {
-        envelopeId: envelope.id,
-        role: RecipientRole.CC,
-      },
-      data: {
-        signingStatus: SigningStatus.SIGNED,
-      },
-    });
-
-    const isComplete =
-      envelope.recipients.some((recipient) => recipient.signingStatus === SigningStatus.REJECTED) ||
-      envelope.recipients.every(
-        (recipient) => recipient.signingStatus === SigningStatus.SIGNED || recipient.role === RecipientRole.CC,
-      );
-
-    if (!isComplete) {
-      throw new AppError(AppErrorCode.UNKNOWN_ERROR, {
-        message: 'Document is not complete',
       });
-    }
 
-    let { envelopeItems } = envelope;
+      if (envelope.envelopeItems.length === 0) {
+        throw new Error('At least one envelope item required');
+      }
 
-    const fields = envelope.fields;
+      const settings = await getTeamSettings({
+        userId: envelope.userId,
+        teamId: envelope.teamId,
+      });
 
-    if (envelopeItems.length < 1) {
-      throw new Error(`Document ${envelope.id} has no envelope items`);
-    }
-
-    const recipientsWithoutCCers = envelope.recipients.filter((recipient) => recipient.role !== RecipientRole.CC);
-
-    // Determine if the document has been rejected by checking if any recipient has rejected it
-    const rejectedRecipient = recipientsWithoutCCers.find(
-      (recipient) => recipient.signingStatus === SigningStatus.REJECTED,
-    );
-
-    const isRejected = Boolean(rejectedRecipient);
-
-    // Get the rejection reason from the rejected recipient
-    const rejectionReason = rejectedRecipient?.rejectionReason ?? '';
-
-    // Skip the field check if the document is rejected
-    if (!isRejected && fieldsContainUnsignedRequiredField(fields)) {
-      throw new Error(`Document ${envelope.id} has unsigned required fields`);
-    }
-
-    if (isResealing) {
-      // If we're resealing we want to use the initial data for the document
-      // so we aren't placing fields on top of eachother.
-      envelopeItems = envelopeItems.map((envelopeItem) => ({
-        ...envelopeItem,
-        documentData: {
-          ...envelopeItem.documentData,
-          data: envelopeItem.documentData.initialData,
-        },
-      }));
-    }
-
-    if (!envelope.qrToken) {
-      await prisma.envelope.update({
+      // Ensure all CC recipients are marked as signed
+      await prisma.recipient.updateMany({
         where: {
-          id: envelope.id,
+          envelopeId: envelope.id,
+          role: RecipientRole.CC,
         },
         data: {
-          qrToken: prefixedId('qr'),
+          signingStatus: SigningStatus.SIGNED,
         },
       });
-    }
 
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    const envelopeCompletedAuditLog = createDocumentAuditLogData({
-      type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_COMPLETED,
-      envelopeId: envelope.id,
-      requestMetadata,
-      user: null,
-      data: {
-        transactionId: nanoid(),
-        ...(isRejected ? { isRejected: true, rejectionReason: rejectionReason } : {}),
-      },
-    });
+      const isComplete =
+        envelope.recipients.some((recipient) => recipient.signingStatus === SigningStatus.REJECTED) ||
+        envelope.recipients.every(
+          (recipient) => recipient.signingStatus === SigningStatus.SIGNED || recipient.role === RecipientRole.CC,
+        );
 
-    const finalEnvelopeStatus = isRejected ? DocumentStatus.REJECTED : DocumentStatus.COMPLETED;
+      if (!isComplete) {
+        throw new AppError(AppErrorCode.UNKNOWN_ERROR, {
+          message: 'Document is not complete',
+        });
+      }
 
-    if (isTspEnvelope(envelope)) {
+      let { envelopeItems } = envelope;
+
+      const fields = envelope.fields;
+
+      if (envelopeItems.length < 1) {
+        throw new Error(`Document ${envelope.id} has no envelope items`);
+      }
+
+      const recipientsWithoutCCers = envelope.recipients.filter((recipient) => recipient.role !== RecipientRole.CC);
+
+      // Determine if the document has been rejected by checking if any recipient has rejected it
+      const rejectedRecipient = recipientsWithoutCCers.find(
+        (recipient) => recipient.signingStatus === SigningStatus.REJECTED,
+      );
+
+      const isRejected = Boolean(rejectedRecipient);
+
+      // Get the rejection reason from the rejected recipient
+      const rejectionReason = rejectedRecipient?.rejectionReason ?? '';
+
+      // Skip the field check if the document is rejected
+      if (!isRejected && fieldsContainUnsignedRequiredField(fields)) {
+        throw new Error(`Document ${envelope.id} has unsigned required fields`);
+      }
+
       if (isResealing) {
-        throw new AppError(AppErrorCode.NOT_SETUP, {
-          message: 'Re-sealing TSP envelopes is not supported — recipient signatures cannot be regenerated externally.',
+        // If we're resealing we want to use the initial data for the document
+        // so we aren't placing fields on top of eachother.
+        envelopeItems = envelopeItems.map((envelopeItem) => ({
+          ...envelopeItem,
+          documentData: {
+            ...envelopeItem.documentData,
+            data: envelopeItem.documentData.initialData,
+          },
+        }));
+      }
+
+      if (!envelope.qrToken) {
+        await prisma.envelope.update({
+          where: {
+            id: envelope.id,
+          },
+          data: {
+            qrToken: prefixedId('qr'),
+          },
         });
       }
 
-      if (isRejected) {
-        throw new AppError(AppErrorCode.NOT_SETUP, {
-          message:
-            'TSP envelope rejection is not supported in V1 — rejection stamps would invalidate PAdES signatures.',
-        });
-      }
-
-      await finalizeTspEnvelopeCompletion({
-        envelope,
-        envelopeCompletedAuditLog,
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      const envelopeCompletedAuditLog = createDocumentAuditLogData({
+        type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_COMPLETED,
+        envelopeId: envelope.id,
         requestMetadata,
+        user: null,
+        data: {
+          transactionId: nanoid(),
+          ...(isRejected ? { isRejected: true, rejectionReason: rejectionReason } : {}),
+        },
+      });
+
+      const finalEnvelopeStatus = isRejected ? DocumentStatus.REJECTED : DocumentStatus.COMPLETED;
+
+      if (isTspEnvelope(envelope)) {
+        if (isResealing) {
+          throw new AppError(AppErrorCode.NOT_SETUP, {
+            message:
+              'Re-sealing TSP envelopes is not supported — recipient signatures cannot be regenerated externally.',
+          });
+        }
+
+        if (isRejected) {
+          throw new AppError(AppErrorCode.NOT_SETUP, {
+            message:
+              'TSP envelope rejection is not supported in V1 — rejection stamps would invalidate PAdES signatures.',
+          });
+        }
+
+        await finalizeTspEnvelopeCompletion({
+          envelope,
+          envelopeCompletedAuditLog,
+          requestMetadata,
+        });
+
+        return {
+          envelopeId: envelope.id,
+          envelopeStatus: envelope.status,
+          isRejected,
+        };
+      }
+
+      // Pre-fetch all PDF data so we can read dimensions and pass it
+      // to decorateAndSignPdf without fetching again.
+      const prefetchedItems = await Promise.all(
+        envelopeItems.map(async (envelopeItem) => {
+          const pdfData = await getFileServerSide(envelopeItem.documentData);
+
+          return { envelopeItem, pdfData };
+        }),
+      );
+
+      const usePlaywrightPdf = NEXT_PRIVATE_USE_PLAYWRIGHT_PDF();
+
+      const needsCertificate = settings.includeSigningCertificate;
+      const needsAuditLog = settings.includeAuditLog;
+
+      const newDocumentData: Array<{ oldDocumentDataId: string; newDocumentDataId: string }> = [];
+
+      for (const { envelopeItem, pdfData } of prefetchedItems) {
+        const envelopeItemFields = envelope.envelopeItems.find((item) => item.id === envelopeItem.id)?.field;
+
+        if (!envelopeItemFields) {
+          throw new Error(`Envelope item fields not found for envelope item ${envelopeItem.id}`);
+        }
+
+        let certificateDoc: PDF | null = null;
+        let auditLogDoc: PDF | null = null;
+
+        if (needsCertificate || needsAuditLog) {
+          const pdfDoc = await PDF.load(pdfData);
+
+          const { width: pageWidth, height: pageHeight } = getLastPageDimensions(pdfDoc);
+
+          const additionalAuditLogs = [
+            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+            {
+              ...envelopeCompletedAuditLog,
+              id: '',
+              createdAt: new Date(),
+            } as TDocumentAuditLog,
+          ];
+
+          const certificatePayload = {
+            envelope: {
+              ...envelope,
+              status: finalEnvelopeStatus,
+            },
+            recipients: envelope.recipients,
+            fields,
+            language: envelope.documentMeta.language,
+            envelopeOwner: {
+              email: envelope.user.email,
+              name: envelope.user.name || '',
+            },
+            envelopeItems: envelopeItems.map((item) => item.title),
+            pageWidth,
+            pageHeight,
+            additionalAuditLogs,
+          };
+
+          const makeCertificatePdf = async () =>
+            usePlaywrightPdf
+              ? getCertificatePdf({
+                  documentId,
+                  language: envelope.documentMeta.language,
+                }).then(async (buffer) => PDF.load(buffer))
+              : generateCertificatePdf(certificatePayload);
+
+          const makeAuditLogPdf = async () =>
+            usePlaywrightPdf
+              ? getAuditLogsPdf({
+                  documentId,
+                  language: envelope.documentMeta.language,
+                }).then(async (buffer) => PDF.load(buffer))
+              : generateAuditLogPdf(certificatePayload);
+
+          [certificateDoc, auditLogDoc] = await Promise.all([
+            needsCertificate ? makeCertificatePdf() : null,
+            needsAuditLog ? makeAuditLogPdf() : null,
+          ]);
+        }
+
+        const result = await decorateAndSignPdf({
+          envelope,
+          envelopeItem,
+          envelopeItemFields,
+          isRejected,
+          rejectionReason,
+          pdfData,
+          certificateDoc,
+          auditLogDoc,
+        });
+
+        newDocumentData.push(result);
+      }
+
+      await prisma.$transaction(async (tx) => {
+        for (const { oldDocumentDataId, newDocumentDataId } of newDocumentData) {
+          await tx.envelopeItem.update({
+            where: {
+              envelopeId: envelope.id,
+              documentDataId: oldDocumentDataId,
+            },
+            data: {
+              documentDataId: newDocumentDataId,
+            },
+          });
+        }
+
+        await tx.envelope.update({
+          where: {
+            id: envelope.id,
+          },
+          data: {
+            status: finalEnvelopeStatus,
+            completedAt: new Date(),
+          },
+        });
+
+        await tx.documentAuditLog.create({
+          data: envelopeCompletedAuditLog,
+        });
       });
 
       return {
@@ -191,169 +323,67 @@ export const run = async ({ payload, io }: { payload: TSealDocumentJobDefinition
         envelopeStatus: envelope.status,
         isRejected,
       };
-    }
-
-    // Pre-fetch all PDF data so we can read dimensions and pass it
-    // to decorateAndSignPdf without fetching again.
-    const prefetchedItems = await Promise.all(
-      envelopeItems.map(async (envelopeItem) => {
-        const pdfData = await getFileServerSide(envelopeItem.documentData);
-
-        return { envelopeItem, pdfData };
-      }),
-    );
-
-    const usePlaywrightPdf = NEXT_PRIVATE_USE_PLAYWRIGHT_PDF();
-
-    const needsCertificate = settings.includeSigningCertificate;
-    const needsAuditLog = settings.includeAuditLog;
-
-    const newDocumentData: Array<{ oldDocumentDataId: string; newDocumentDataId: string }> = [];
-
-    for (const { envelopeItem, pdfData } of prefetchedItems) {
-      const envelopeItemFields = envelope.envelopeItems.find((item) => item.id === envelopeItem.id)?.field;
-
-      if (!envelopeItemFields) {
-        throw new Error(`Envelope item fields not found for envelope item ${envelopeItem.id}`);
-      }
-
-      let certificateDoc: PDF | null = null;
-      let auditLogDoc: PDF | null = null;
-
-      if (needsCertificate || needsAuditLog) {
-        const pdfDoc = await PDF.load(pdfData);
-
-        const { width: pageWidth, height: pageHeight } = getLastPageDimensions(pdfDoc);
-
-        const additionalAuditLogs = [
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-          {
-            ...envelopeCompletedAuditLog,
-            id: '',
-            createdAt: new Date(),
-          } as TDocumentAuditLog,
-        ];
-
-        const certificatePayload = {
-          envelope: {
-            ...envelope,
-            status: finalEnvelopeStatus,
-          },
-          recipients: envelope.recipients,
-          fields,
-          language: envelope.documentMeta.language,
-          envelopeOwner: {
-            email: envelope.user.email,
-            name: envelope.user.name || '',
-          },
-          envelopeItems: envelopeItems.map((item) => item.title),
-          pageWidth,
-          pageHeight,
-          additionalAuditLogs,
-        };
-
-        const makeCertificatePdf = async () =>
-          usePlaywrightPdf
-            ? getCertificatePdf({
-                documentId,
-                language: envelope.documentMeta.language,
-              }).then(async (buffer) => PDF.load(buffer))
-            : generateCertificatePdf(certificatePayload);
-
-        const makeAuditLogPdf = async () =>
-          usePlaywrightPdf
-            ? getAuditLogsPdf({
-                documentId,
-                language: envelope.documentMeta.language,
-              }).then(async (buffer) => PDF.load(buffer))
-            : generateAuditLogPdf(certificatePayload);
-
-        [certificateDoc, auditLogDoc] = await Promise.all([
-          needsCertificate ? makeCertificatePdf() : null,
-          needsAuditLog ? makeAuditLogPdf() : null,
-        ]);
-      }
-
-      const result = await decorateAndSignPdf({
-        envelope,
-        envelopeItem,
-        envelopeItemFields,
-        isRejected,
-        rejectionReason,
-        pdfData,
-        certificateDoc,
-        auditLogDoc,
-      });
-
-      newDocumentData.push(result);
-    }
-
-    await prisma.$transaction(async (tx) => {
-      for (const { oldDocumentDataId, newDocumentDataId } of newDocumentData) {
-        await tx.envelopeItem.update({
-          where: {
-            envelopeId: envelope.id,
-            documentDataId: oldDocumentDataId,
-          },
-          data: {
-            documentDataId: newDocumentDataId,
-          },
-        });
-      }
-
-      await tx.envelope.update({
-        where: {
-          id: envelope.id,
-        },
-        data: {
-          status: finalEnvelopeStatus,
-          completedAt: new Date(),
-        },
-      });
-
-      await tx.documentAuditLog.create({
-        data: envelopeCompletedAuditLog,
-      });
     });
 
-    return {
-      envelopeId: envelope.id,
-      envelopeStatus: envelope.status,
-      isRejected,
-    };
-  });
-
-  const updatedEnvelope = await prisma.envelope.findFirstOrThrow({
-    where: {
-      id: envelopeId,
-    },
-    include: {
-      documentMeta: true,
-      recipients: true,
-    },
-  });
-
-  await triggerWebhook({
-    event: isRejected ? WebhookTriggerEvents.DOCUMENT_REJECTED : WebhookTriggerEvents.DOCUMENT_COMPLETED,
-    data: ZWebhookDocumentSchema.parse(mapEnvelopeToWebhookDocumentPayload(updatedEnvelope)),
-    userId: updatedEnvelope.userId,
-    teamId: updatedEnvelope.teamId ?? undefined,
-  });
-
-  let shouldSendCompletedEmail = sendEmail && !isResealing && !isRejected;
-
-  if (isResealing && !isDocumentCompleted(envelopeStatus)) {
-    shouldSendCompletedEmail = sendEmail;
-  }
-
-  if (shouldSendCompletedEmail) {
-    await sendDocumentCompletedEmails({
-      payload: {
-        envelopeId,
-        requestMetadata,
+    const updatedEnvelope = await prisma.envelope.findFirstOrThrow({
+      where: {
+        id: envelopeId,
       },
-      io,
+      include: {
+        documentMeta: true,
+        recipients: true,
+      },
     });
+
+    await triggerWebhook({
+      event: isRejected ? WebhookTriggerEvents.DOCUMENT_REJECTED : WebhookTriggerEvents.DOCUMENT_COMPLETED,
+      data: ZWebhookDocumentSchema.parse(mapEnvelopeToWebhookDocumentPayload(updatedEnvelope)),
+      userId: updatedEnvelope.userId,
+      teamId: updatedEnvelope.teamId ?? undefined,
+    });
+
+    let shouldSendCompletedEmail = sendEmail && !isResealing && !isRejected;
+
+    if (isResealing && !isDocumentCompleted(envelopeStatus)) {
+      shouldSendCompletedEmail = sendEmail;
+    }
+
+    if (shouldSendCompletedEmail) {
+      await sendDocumentCompletedEmails({
+        payload: {
+          envelopeId,
+          requestMetadata,
+        },
+        io,
+      });
+    }
+  } catch (error) {
+    // On a failed seal (e.g. unreachable/slow TSA, transient storage error) the
+    // envelope was already flipped to PROCESSING by the completion flow. Without
+    // intervention it would stay PROCESSING forever because the seal-document-sweep
+    // only recovers PENDING envelopes. Revert to PENDING so the sweep can retry
+    // the seal, making the pipeline self-healing regardless of the jobs provider.
+    const envelope = await prisma.envelope.findFirst({
+      where: {
+        type: EnvelopeType.DOCUMENT,
+        secondaryId: mapDocumentIdToSecondaryId(documentId),
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (envelope && envelope.status === DocumentStatus.PROCESSING) {
+      await prisma.envelope.update({
+        where: { id: envelope.id },
+        data: { status: DocumentStatus.PENDING },
+      });
+
+      io.logger.error(`Seal failed for document ${documentId}; reverted envelope to PENDING for sweep retry`);
+    }
+
+    throw error;
   }
 };
 
