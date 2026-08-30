@@ -74,6 +74,23 @@
 - Preview deploy URLs are Vercel-SSO protected; the bypass token above is the
   only way to curl them.
 
+## 8. Trigger.dev worker email failures (URL.parse on Node 21)
+- Emails stopped going out (recipients stuck `NOT_SENT`, no `EMAIL_SENT` audit log) because the
+  Trigger.dev worker runs **Node 21.7.3**, and `URL.parse()` (used in
+  `packages/email/utils/branding-url.ts` via the email branding path) requires Node 22.1+.
+  Every `send.signing.requested.email` run failed with `URL.parse is not a function`.
+- Fix: replace `URL.parse(x)` with `new URL(x)` inside try/catch. Vercel functions run Node 22+
+  so the bug only surfaced in the worker.
+- Debugging the worker:
+  - Runs API: `GET https://api.trigger.dev/api/v1/runs?limit=N` with `Authorization: Bearer <tr_prod_...>` (worker secret key).
+  - Error details: `GET /api/v1/runs/{runId}/trace` → walk spans, read `exception` events.
+  - Trigger a job manually: `POST /api/v1/tasks/documenso-job/trigger` body `{"payload":{name,payload}, "context":{}}`.
+    NOTE: `documentId` must be the NUMERIC id (from `mapSecondaryIdToDocumentId(secondaryId)`), not the `document_4` string.
+  - Current deploy: `GET /api/v1/deployments/current` (check `version`, `status`, `runtimeVersion`).
+- Worker redeploy: `npx trigger.dev@4.5.12 deploy` (from apps/remix). The depot context upload is
+  flaky on this repo (stalls at ~50-90MB); retry until it completes — each retry caches earlier upload chunks.
+- Env vars for the worker come from `npx trigger.dev@4.5.12 env` (NOT synced from Vercel).
+
 ## 7. Dashboard stats: 7 capped counts per load
 - `getStats()` runs 7 capped-count queries (each with EXISTS subqueries against
   Recipient) on every dashboard nav. Added a 60s TTL in-process cache keyed by
