@@ -228,21 +228,22 @@ export const getEnvelopeForRecipientSigning = async ({
     });
   }
 
-  const documentAccessValid = await isRecipientAuthorized({
-    type: 'ACCESS',
-    documentAuthOptions: envelope.authOptions,
-    recipient,
-    userId,
-    authOptions: accessAuth,
-  });
+  const [documentAccessValid, settings] = await Promise.all([
+    isRecipientAuthorized({
+      type: 'ACCESS',
+      documentAuthOptions: envelope.authOptions,
+      recipient,
+      userId,
+      authOptions: accessAuth,
+    }),
+    getTeamSettings({ teamId: envelope.teamId }),
+  ]);
 
   if (!documentAccessValid) {
     throw new AppError(AppErrorCode.UNAUTHORIZED, {
       message: 'Invalid access values',
     });
   }
-
-  const settings = await getTeamSettings({ teamId: envelope.teamId });
 
   // Get the signature if they have put it in already.
   const recipientSignature = await prisma.signature.findFirst({

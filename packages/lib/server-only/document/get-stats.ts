@@ -61,6 +61,41 @@ export type GetStatsInput = {
   senderIds?: number[];
 };
 
+// Short-TTL cache for dashboard stats. The 7 capped-count queries (each with
+// EXISTS subqueries against Recipient) are the most expensive part of every
+// dashboard load; a 60s cache collapses repeat navigations to one DB hit.
+const STATS_CACHE_TTL_MS = 60_000;
+const statsCache = new Map<string, { expiresAt: number; value: Record<ExtendedDocumentStatus, number> }>();
+
+const statsCacheKey = (input: GetStatsInput) =>
+  `${input.userId}|${input.teamId}|${input.period ?? ''}|${(input.search ?? '').trim()}|${input.folderId ?? ''}|${(input.senderIds ?? []).join(',')}`;
+
+const getCachedStats = (key: string) => {
+  const entry = statsCache.get(key);
+
+  if (entry && entry.expiresAt > Date.now()) {
+    return entry.value;
+  }
+
+  if (entry) {
+    statsCache.delete(key);
+  }
+
+  return null;
+};
+
+const setCachedStats = (key: string, value: Record<ExtendedDocumentStatus, number>) => {
+  // Cap the cache size so it can't grow unbounded across many teams/users.
+  if (statsCache.size > 500) {
+    const now = Date.now();
+    for (const [k, e] of statsCache) {
+      if (e.expiresAt < now) statsCache.delete(k);
+    }
+  }
+
+  statsCache.set(key, { expiresAt: Date.now() + STATS_CACHE_TTL_MS, value });
+};
+
 /**
  * Builds a capped count from a query builder: wraps it as
  * `SELECT COUNT(*) FROM (SELECT id FROM ... LIMIT cap+1) sub`
@@ -82,6 +117,13 @@ const cappedCount = async (qb: EnvelopeQueryBuilder): Promise<number> => {
 };
 
 export const getStats = async ({ userId, teamId, period, search = '', folderId, senderIds }: GetStatsInput) => {
+  const cacheKey = statsCacheKey({ userId, teamId, period, search, folderId, senderIds });
+  const cached = getCachedStats(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
   const user = await prisma.user.findFirstOrThrow({
     where: { id: userId },
     select: { id: true, email: true },
@@ -311,6 +353,8 @@ export const getStats = async ({ userId, teamId, period, search = '', folderId, 
     [ExtendedDocumentStatus.INBOX]: inbox,
     [ExtendedDocumentStatus.ALL]: all,
   };
+
+  setCachedStats(cacheKey, stats);
 
   return stats;
 };

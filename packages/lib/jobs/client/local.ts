@@ -401,14 +401,33 @@ export class LocalJobProvider extends BaseJobProvider {
         });
 
         if (!task) {
-          task = await prisma.backgroundJobTask.create({
-            data: {
-              id: `task-${hashedKey}--${jobId}`,
-              name: cacheKey,
-              jobId,
-              status: BackgroundJobStatus.PENDING,
-            },
-          });
+          // Two instances can race on the same task slot; if the insert collides
+          // on the primary key, treat it as "already created" and re-read it.
+          task = await prisma.backgroundJobTask
+            .create({
+              data: {
+                id: `task-${hashedKey}--${jobId}`,
+                name: cacheKey,
+                jobId,
+                status: BackgroundJobStatus.PENDING,
+              },
+            })
+            .catch((error: unknown) => {
+              if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                return prisma.backgroundJobTask.findFirst({
+                  where: {
+                    id: `task-${hashedKey}--${jobId}`,
+                    jobId,
+                  },
+                });
+              }
+
+              throw error;
+            });
+
+          if (!task) {
+            throw new BackgroundTaskFailedError('Task could not be created');
+          }
         }
 
         if (task.status === BackgroundJobStatus.COMPLETED) {

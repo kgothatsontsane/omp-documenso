@@ -125,7 +125,9 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
   expiry    DateTime
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model Passkey {
@@ -214,6 +216,8 @@ model WebhookCall {
   createdAt       DateTime             @default(now())
   webhookId       String
   webhook         Webhook              @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, status, createdAt])
 }
 
 enum ApiTokenAlgorithm {
@@ -493,6 +497,7 @@ model Envelope {
   @@index([teamId])
   @@index([folderId])
   @@index([createdAt])
+  @@index([templateId])
 }
 
 model EnvelopeItem {
@@ -1139,6 +1144,9 @@ model BackgroundJob {
   lastRetriedAt DateTime?
 
   tasks BackgroundJobTask[]
+
+  @@index([status, submittedAt])
+  @@index([jobId, status])
 }
 
 enum BackgroundJobTaskStatus {
@@ -1162,6 +1170,9 @@ model BackgroundJobTask {
 
   jobId         String
   backgroundJob BackgroundJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([status])
 }
 
 model AvatarImage {

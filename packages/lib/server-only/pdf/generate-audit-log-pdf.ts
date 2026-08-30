@@ -59,6 +59,11 @@ export const generateAuditLogPdf = async (options: GenerateAuditLogPdfOptions) =
   });
 };
 
+// Cap the number of audit events rendered into the PDF. A heavily signed or
+// resent document can accumulate hundreds of events; rendering them all makes
+// the export path slow and produces huge PDFs. Keep the newest events only.
+const MAX_AUDIT_LOG_PDF_EVENTS = 500;
+
 const getAuditLogs = async (envelopeId: string) => {
   const auditLogs = await prisma.documentAuditLog.findMany({
     where: {
@@ -67,6 +72,7 @@ const getAuditLogs = async (envelopeId: string) => {
     orderBy: {
       createdAt: 'desc',
     },
+    take: MAX_AUDIT_LOG_PDF_EVENTS,
   });
 
   return auditLogs.map((auditLog) => parseDocumentAuditLogData(auditLog));
