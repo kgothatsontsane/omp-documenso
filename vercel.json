@@ -22,31 +22,5 @@
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api" }
-  ],
-  "headers": [
-    {
-      "source": "/fonts/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/favicon(.*).png",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/apple-touch-icon(.*).png",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/favicon.ico",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    }
   ]
 }
