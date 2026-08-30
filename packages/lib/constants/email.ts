@@ -1,6 +1,6 @@
 import { env } from '../utils/env';
 
-export const FROM_ADDRESS = env('NEXT_PRIVATE_SMTP_FROM_ADDRESS') || 'noreply@open-mic.co.za';
+export const FROM_ADDRESS = env('NEXT_PRIVATE_SMTP_FROM_ADDRESS') || 'agreements@open-mic.co.za';
 export const FROM_NAME = env('NEXT_PRIVATE_SMTP_FROM_NAME') || 'Open Mic Productions';
 
 export const DOCUMENSO_INTERNAL_EMAIL = {
