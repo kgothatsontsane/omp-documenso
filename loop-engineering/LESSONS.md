@@ -41,3 +41,41 @@
   Signatures — that would be misleading.
 - The QR code on the cert = `${NEXT_PUBLIC_WEBAPP_URL}/share/${qrToken}` (public
   share link), not a signature-verification token.
+
+## 5. Vercel `functions` vs `builds` are mutually exclusive (root cause of the 2026-08-30 outage)
+- `vercel.json` CANNOT have both a top-level `functions` map AND a `builds`
+  array — Vercel rejects it with `bad_request` ("The functions property cannot
+  be used in conjunction with the builds property").
+- The working production config uses ONLY `functions`:
+  - `api/index.mjs` → `includeFiles: "api/build/server/**"`
+  - `api/static.mjs` → `includeFiles: "api/build/client/**"`
+  - routes: `/assets`, `/fonts`, `/static`, favicons, `/bimi` → `/api/static`;
+    filesystem; catch-all → `/api`
+- `apps/remix/.bin/build.sh` MUST end by copying the build to `api/build`
+  (`rm -rf ../../api/build && cp -R build ../../api/build && cp package.json
+  ../../api/build/package.json`). If that copy is missing, git-based deploys
+  crash at runtime with `FUNCTION_INVOCATION_FAILED` /
+  `Cannot find module '/var/task/api/build/server/hono/server/router.js'`.
+  The `includeFiles` globs are what force nft to bundle the gitignored
+  `api/build/**` into the lambda.
+- `api/static.mjs` must exist (it serves all static assets from
+  `api/build/client`). Do not delete it.
+
+## 6. Production-first workflow (staging branch)
+- NEVER push directly to `main` — every `main` push auto-deploys production.
+- Flow: work on `staging` → push → wait for the Vercel PREVIEW deploy →
+  verify the preview URL with the protection-bypass header
+  (`x-vercel-protection-bypass: TrreQfzuPqrTBg3HHjo9eWGQ1qrtq1h6`) returns
+  HTTP 200 and no `FUNCTION_INVOCATION_FAILED` → only then
+  `git merge --ff-only staging` onto `main` and push.
+- Rollback: `npx vercel promote https://<last-good-deploy-url>` instantly
+  repoints production.
+- Preview deploy URLs are Vercel-SSO protected; the bypass token above is the
+  only way to curl them.
+
+## 7. Dashboard stats: 7 capped counts per load
+- `getStats()` runs 7 capped-count queries (each with EXISTS subqueries against
+  Recipient) on every dashboard nav. Added a 60s TTL in-process cache keyed by
+  input → 1 DB hit per minute instead of per nav.
+- Do not remove the cache; if counts must be fresher, shorten the TTL rather
+  than deleting it.
