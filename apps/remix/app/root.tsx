@@ -29,7 +29,10 @@ import { themeSessionResolver } from './storage/theme-session.server';
 import { appMetaTags } from './utils/meta';
 import { nonce } from './utils/nonce';
 
-export const links: Route.LinksFunction = () => [{ rel: 'stylesheet', href: stylesheet }];
+export const links: Route.LinksFunction = () => [
+  { rel: 'preload', as: 'style', href: stylesheet },
+  { rel: 'stylesheet', href: stylesheet },
+];
 
 export function meta() {
   return appMetaTags();
