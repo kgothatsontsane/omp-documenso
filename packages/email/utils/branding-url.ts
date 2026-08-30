@@ -11,7 +11,15 @@ export const getSafeBrandingUrl = (brandingUrl: string | null | undefined): stri
     return null;
   }
 
-  const parsed = URL.parse(brandingUrl);
+  // `URL.parse` requires Node 22.1+; the Trigger.dev worker runs Node 21, so
+  // fall back to `new URL()` which is supported everywhere.
+  let parsed: URL | null = null;
+
+  try {
+    parsed = new URL(brandingUrl);
+  } catch {
+    parsed = null;
+  }
 
   if (parsed?.protocol !== 'http:' && parsed?.protocol !== 'https:') {
     return null;
