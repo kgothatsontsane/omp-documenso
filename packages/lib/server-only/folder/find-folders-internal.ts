@@ -42,68 +42,86 @@ export const findFoldersInternal = async ({ userId, teamId, parentId, type }: Fi
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
     });
 
-    const foldersWithDetails = await Promise.all(
-      folders.map(async (folder) => {
-        try {
-          const [subfolders, documentCount, templateCount, subfolderCount] = await Promise.all([
-            prisma.folder.findMany({
-              where: {
-                parentId: folder.id,
-                teamId,
-                ...visibilityFilters,
-              },
-              orderBy: {
-                createdAt: 'desc',
-              },
-            }),
-            prisma.envelope.count({
-              where: {
-                type: EnvelopeType.DOCUMENT,
-                folderId: folder.id,
-                deletedAt: null,
-              },
-            }),
-            prisma.envelope.count({
-              where: {
-                type: EnvelopeType.TEMPLATE,
-                folderId: folder.id,
-                deletedAt: null,
-              },
-            }),
-            prisma.folder.count({
-              where: {
-                parentId: folder.id,
-                teamId,
-                ...visibilityFilters,
-              },
-            }),
-          ]);
+    // Collapse the per-folder count fan-out (previously 4 queries × folder)
+    // into four aggregate queries total, so the cost is flat regardless of
+    // how many folders the team has.
+    const folderIds = folders.map((folder) => folder.id);
 
-          const subfoldersWithEmptySubfolders = subfolders.map((subfolder) => ({
-            ...subfolder,
-            subfolders: [],
-            _count: {
-              documents: 0,
-              templates: 0,
-              subfolders: 0,
-            },
-          }));
-
-          return {
-            ...folder,
-            subfolders: subfoldersWithEmptySubfolders,
-            _count: {
-              documents: documentCount,
-              templates: templateCount,
-              subfolders: subfolderCount,
-            },
-          };
-        } catch (error) {
-          console.error('Error processing folder:', folder.id, error);
-          throw error;
-        }
+    const [documentCounts, templateCounts, subfolderCounts, allSubfolders] = await Promise.all([
+      prisma.envelope.groupBy({
+        by: ['folderId'],
+        where: {
+          type: EnvelopeType.DOCUMENT,
+          folderId: { in: folderIds },
+          deletedAt: null,
+        },
+        _count: { _all: true },
       }),
-    );
+      prisma.envelope.groupBy({
+        by: ['folderId'],
+        where: {
+          type: EnvelopeType.TEMPLATE,
+          folderId: { in: folderIds },
+          deletedAt: null,
+        },
+        _count: { _all: true },
+      }),
+      prisma.folder.groupBy({
+        by: ['parentId'],
+        where: {
+          parentId: { in: folderIds },
+          teamId,
+          ...visibilityFilters,
+        },
+        _count: { _all: true },
+      }),
+      prisma.folder.findMany({
+        where: {
+          parentId: { in: folderIds },
+          teamId,
+          ...visibilityFilters,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+    ]);
+
+    const documentCountByFolder = new Map(documentCounts.map((c) => [c.folderId, c._count._all]));
+    const templateCountByFolder = new Map(templateCounts.map((c) => [c.folderId, c._count._all]));
+    const subfolderCountByParent = new Map(subfolderCounts.map((c) => [c.parentId, c._count._all]));
+    const subfoldersByParent = new Map<string | null, typeof allSubfolders>();
+
+    for (const subfolder of allSubfolders) {
+      const existing = subfoldersByParent.get(subfolder.parentId) ?? [];
+
+      existing.push(subfolder);
+      subfoldersByParent.set(subfolder.parentId, existing);
+    }
+
+    const foldersWithDetails = folders.map((folder) => {
+      const subfolders = subfoldersByParent.get(folder.id) ?? [];
+
+      const subfoldersWithEmptySubfolders = subfolders.map((subfolder) => ({
+        ...subfolder,
+        subfolders: [],
+        _count: {
+          documents: 0,
+          templates: 0,
+          subfolders: 0,
+        },
+      }));
+
+      return {
+        ...folder,
+        subfolders: subfoldersWithEmptySubfolders,
+        _count: {
+          documents: documentCountByFolder.get(folder.id) ?? 0,
+          templates: templateCountByFolder.get(folder.id) ?? 0,
+          subfolders: subfolderCountByParent.get(folder.id) ?? 0,
+        },
+      };
+    });
 
     return foldersWithDetails;
   } catch (error) {

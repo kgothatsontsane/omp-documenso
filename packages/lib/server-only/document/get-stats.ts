@@ -59,6 +59,8 @@ export type GetStatsInput = {
   search?: string;
   folderId?: string;
   senderIds?: number[];
+  /** Preloaded team from `getTeamById`, avoids a duplicate query when the caller already loaded it. */
+  team?: Awaited<ReturnType<typeof getTeamById>>;
 };
 
 // Short-TTL cache for dashboard stats. The 7 capped-count queries (each with
@@ -116,7 +118,7 @@ const cappedCount = async (qb: EnvelopeQueryBuilder): Promise<number> => {
   return Math.min(Number(result.total ?? 0), STATS_COUNT_CAP);
 };
 
-export const getStats = async ({ userId, teamId, period, search = '', folderId, senderIds }: GetStatsInput) => {
+export const getStats = async ({ userId, teamId, period, search = '', folderId, senderIds, team: preloadedTeam }: GetStatsInput) => {
   const cacheKey = statsCacheKey({ userId, teamId, period, search, folderId, senderIds });
   const cached = getCachedStats(cacheKey);
 
@@ -129,7 +131,7 @@ export const getStats = async ({ userId, teamId, period, search = '', folderId, 
     select: { id: true, email: true },
   });
 
-  const team = await getTeamById({ userId, teamId });
+  const team = preloadedTeam ?? (await getTeamById({ userId, teamId }));
 
   const teamEmail = team.teamEmail?.email ?? null;
   const currentTeamRole = team.currentTeamRole ?? TeamMemberRole.MEMBER;

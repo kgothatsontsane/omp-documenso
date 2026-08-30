@@ -4,7 +4,7 @@ import { trpc } from '@documenso/trpc/client';
 import type { TGetOrganisationSessionResponse } from '@documenso/trpc/server/organisation-router/get-organisation-session.types';
 import type { Session } from '@prisma/client';
 import type React from 'react';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 
 import { SKIP_QUERY_BATCH_META } from '../../constants/trpc';
@@ -59,7 +59,22 @@ export const SessionProvider = ({ children, initialSession }: SessionProviderPro
 
   const location = useLocation();
 
+  // Throttle session refreshes to once per 30s: the loaders already validate
+  // the session on every page load (`shouldRevalidate = false` keeps that data
+  // fresh), so re-fetching the full session + organisation graph on every SPA
+  // navigation and tab focus was firing 2 HTTP round-trips + ~8 DB queries per
+  // navigation. Keeping a throttled refresh still validates the token on focus.
+  const lastRefreshAt = useRef(0);
+
   const refreshSession = useCallback(async () => {
+    const now = Date.now();
+
+    if (now - lastRefreshAt.current < 30_000) {
+      return;
+    }
+
+    lastRefreshAt.current = now;
+
     const newSession = await authClient.getSession();
 
     if (!newSession.isAuthenticated) {

@@ -34,7 +34,12 @@ import { CardMetric } from '~/components/general/metric-card';
 import { version } from '../../../../package.json';
 import type { Route } from './+types/stats';
 
-export async function loader() {
+// Admin aggregates are global and change slowly; a 60s TTL cache collapses
+// repeat visits (every page load previously ran 8 full-table aggregations).
+const ADMIN_STATS_CACHE_TTL_MS = 60_000;
+let adminStatsCache: { expiresAt: number; value: Awaited<ReturnType<typeof loadAdminStats>> } | null = null;
+
+async function loadAdminStats() {
   const [
     usersCount,
     organisationsWithSubscriptionsCount,
@@ -65,6 +70,18 @@ export async function loader() {
     monthlyActiveUsers,
     licenseData: licenseData || null,
   };
+}
+
+export async function loader() {
+  if (adminStatsCache && adminStatsCache.expiresAt > Date.now()) {
+    return adminStatsCache.value;
+  }
+
+  const value = await loadAdminStats();
+
+  adminStatsCache = { expiresAt: Date.now() + ADMIN_STATS_CACHE_TTL_MS, value };
+
+  return value;
 }
 
 export default function AdminStatsPage({ loaderData }: Route.ComponentProps) {

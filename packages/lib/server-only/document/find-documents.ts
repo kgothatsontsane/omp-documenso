@@ -47,6 +47,8 @@ export type FindDocumentsOptions = {
    * When false, use a full COUNT(*) for exact totals — preferred for external API consumers.
    */
   useWindowedCount?: boolean;
+  /** Preloaded team from `getTeamById`, avoids a duplicate query when the caller already loaded it. */
+  team?: Awaited<ReturnType<typeof getTeamById>>;
 };
 
 /**
@@ -123,6 +125,7 @@ export const findDocuments = async ({
   folderId,
   hasExpiredRecipients,
   useWindowedCount = true,
+  team: preloadedTeam,
 }: FindDocumentsOptions) => {
   const user = await prisma.user.findFirstOrThrow({
     where: { id: userId },
@@ -132,7 +135,7 @@ export const findDocuments = async ({
   let team = null;
 
   if (teamId !== undefined) {
-    team = await getTeamById({ userId, teamId });
+    team = preloadedTeam ?? (await getTeamById({ userId, teamId }));
   }
 
   const orderByColumn = orderBy?.column ?? 'createdAt';
