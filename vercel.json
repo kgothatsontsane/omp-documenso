@@ -6,7 +6,7 @@
       "use": "@vercel/static-build",
       "config": {
         "installCommand": "npm ci",
-        "buildCommand": "npx turbo run build --filter=@documenso/remix --force && rm -rf api/build && cp -R apps/remix/build api/build && cp apps/remix/package.json api/build/package.json",
+        "buildCommand": "npx turbo run build --filter=@documenso/remix --force && rm -rf api/server-build && cp -R apps/remix/build api/server-build && cp apps/remix/package.json api/server-build/package.json",
         "outputDirectory": "apps/remix/build/client"
       }
     },
