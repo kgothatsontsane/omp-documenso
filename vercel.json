@@ -20,6 +20,7 @@
     { "src": "/opengraph-image(.*)", "dest": "/api/static" },
     { "src": "/robots.txt", "dest": "/api/static" },
     { "src": "/site.webmanifest", "dest": "/api/static" },
+    { "src": "/bimi/(.*)", "dest": "/api/static" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api" }
   ]
