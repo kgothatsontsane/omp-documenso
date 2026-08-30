@@ -14,6 +14,12 @@
     { "src": "/assets/(.*)", "dest": "/api/static" },
     { "src": "/fonts/(.*)", "dest": "/api/static" },
     { "src": "/static/(.*)", "dest": "/api/static" },
+    { "src": "/favicon(.*)", "dest": "/api/static" },
+    { "src": "/apple-touch-icon(.*)", "dest": "/api/static" },
+    { "src": "/android-chrome(.*)", "dest": "/api/static" },
+    { "src": "/opengraph-image(.*)", "dest": "/api/static" },
+    { "src": "/robots.txt", "dest": "/api/static" },
+    { "src": "/site.webmanifest", "dest": "/api/static" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api" }
   ]
