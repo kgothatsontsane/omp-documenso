@@ -441,18 +441,21 @@ const renderBranding = () => {
   const brandingHeight = 16;
 
   const logoPath = path.join(process.cwd(), 'public/static/logo.png');
-  const logo = fs.readFileSync(logoPath);
+  const logo = fs.existsSync(logoPath) ? fs.readFileSync(logoPath) : null;
 
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  const img = new SkiaImage(logo) as unknown as HTMLImageElement;
+  if (logo) {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    const img = new SkiaImage(logo) as unknown as HTMLImageElement;
 
-  const brandingImage = new Konva.Image({
-    image: img,
-    height: brandingHeight,
-    width: brandingHeight * (img.width / img.height),
-  });
+    const brandingImage = new Konva.Image({
+      image: img,
+      height: brandingHeight,
+      width: brandingHeight * (img.width / img.height),
+    });
 
-  branding.add(brandingImage);
+    branding.add(brandingImage);
+  }
+
   return branding;
 };
 

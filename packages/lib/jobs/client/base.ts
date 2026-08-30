@@ -20,7 +20,7 @@ export abstract class BaseJobProvider {
   /**
    * Start the cron scheduler for any registered cron jobs.
    *
-   * No-op for providers that handle cron scheduling externally (e.g. Inngest).
+   * No-op for providers that handle cron scheduling externally.
    * Must be called explicitly at application startup.
    */
   public startCron(): void {

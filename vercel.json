@@ -2,12 +2,20 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "builds": [
     {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "installCommand": "npm ci",
+        "buildCommand": "npx turbo run build --filter=@documenso/remix --force && rm -rf api/build && cp -R apps/remix/build api/build && cp apps/remix/package.json api/build/package.json",
+        "outputDirectory": "apps/remix/build/client"
+      }
+    },
+    {
       "src": "api/index.mjs",
       "use": "@vercel/node",
       "config": {
         "maxDuration": 60,
-        "excludeFiles": "**/*.po",
-        "includeFiles": ["apps/remix/build/**"]
+        "excludeFiles": "**/*.po"
       }
     }
   ],

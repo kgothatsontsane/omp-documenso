@@ -5,8 +5,9 @@ import {
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { HttpTimestampAuthority, type TimestampAuthority } from '@libpdf/core';
 
-import type { CscTransport } from './transport';
+import { getCscTransport, type CscTransport } from './transport';
 import { CscTspTimestampAuthority } from './tsp-timestamp-authority';
+import { createCscTspSealTimeTimestampAuthority } from './tsp-timestamp-authority';
 
 /**
  * Two-phase TSA resolution for the CSC transport.
@@ -22,11 +23,11 @@ import { CscTspTimestampAuthority } from './tsp-timestamp-authority';
  *
  * Phase 2 — seal time (PAdES B-LTA archival timestamp).
  *   The seal-document job emits one `/DocTimeStamp` over the fully-signed
- *   envelope. {@link resolveCscSealTimeTsa} returns the env-configured TSA
- *   only — the archival anchor SHOULD be a dedicated qualified archival
- *   TSA, independent of the per-recipient TSP. Using the TSP here would
- *   couple archive longevity to a TSP that may rotate or revoke, and seal
- *   time has no recipient context to carry a service-scope bearer anyway.
+ *   envelope. {@link resolveCscSealTimeTsa} prefers the TSP's own
+ *   `signatures/timestamp` endpoint (so the archival anchor is minted by the
+ *   same TSP that signed the document) and falls back to the env-configured
+ *   RFC 3161 TSA — the recommended dedicated qualified archival anchor,
+ *   independent of the per-recipient TSP.
  *
  * Boot-time guard: {@link buildCscTransport} asserts
  * `NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY` is set unconditionally — seal
@@ -70,22 +71,47 @@ export const resolveCscSignTimeTsa = (transport: CscTransport, serviceToken: str
 };
 
 /**
- * Resolve the seal-time archival TSA URLs (env only).
+ * Resolve the seal-time B-LTA archival `TimestampAuthority`.
  *
- * Returns the parsed env list; the caller picks how to consume it (today
- * `finalize-tsp-completion.ts` uses the first URL).
+ * Precedence (resolved lazily at seal time):
+ *  1. TSP's own `signatures/timestamp` endpoint (CSC §11.10) when advertised
+ *     — the archival stamp then runs entirely through the TSP, no separate
+ *     RFC 3161 TSA required. Seal time has no recipient, so a service-scope
+ *     token is minted via the client-credentials grant
+ *     ({@link createCscTspSealTimeTimestampAuthority}).
+ *  2. Env-configured RFC 3161 TSA
+ *     (`NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY`) — the recommended
+ *     dedicated qualified archival anchor, independent of the TSP.
+ *
+ * If the TSP advertises the method but rejects the client-credentials grant
+ * at runtime, we silently fall through to the env TSA so the seal still
+ * completes. If neither source is available the boot guard in
+ * `buildCscTransport` already rejected the configuration.
  */
-export const resolveCscSealTimeTsa = (): { urls: string[] } => {
-  const envUrls = parseTsaEnv(NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY());
+export const resolveCscSealTimeTsa = async (): Promise<TimestampAuthority> => {
+  const transport = await getCscTransport();
 
-  if (envUrls.length === 0) {
-    throw new AppError(AppErrorCode.CSC_PROVIDER_NO_TSA, {
-      message:
-        'CSC seal-time archival timestamps require NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY. This should have been caught by the boot-time guard in buildCscTransport — the env var is required at seal time even when the TSP advertises signatures/timestamp.',
+  if (transport.supportsTimestamp) {
+    try {
+      return await createCscTspSealTimeTimestampAuthority(transport);
+    } catch (err) {
+      // TSP path unavailable (e.g. client_credentials rejected) — fall
+      // through to the env-configured TSA.
+    }
+  }
+
+  if (isEnvTsaConfigured()) {
+    const envUrls = parseTsaEnv(NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY());
+
+    return new HttpTimestampAuthority(envUrls[0], {
+      timeout: NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS(),
     });
   }
 
-  return { urls: envUrls };
+  throw new AppError(AppErrorCode.CSC_PROVIDER_NO_TSA, {
+    message:
+      'CSC seal-time archival timestamps require either a TSP that advertises signatures/timestamp (with client-credentials support) or NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY.',
+  });
 };
 
 /**

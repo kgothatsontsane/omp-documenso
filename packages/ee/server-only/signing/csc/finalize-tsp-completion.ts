@@ -1,10 +1,9 @@
-import { NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS } from '@documenso/lib/constants/app';
 import type { RequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 import { getFileServerSide } from '@documenso/lib/universal/upload/get-file.server';
 import { putPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
 import type { CreateDocumentAuditLogDataResponse } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
-import { HttpTimestampAuthority, PDF, type TimestampAuthority } from '@libpdf/core';
+import { PDF } from '@libpdf/core';
 import type { DocumentData, DocumentMeta, Envelope, EnvelopeItem, Recipient, User } from '@prisma/client';
 import { DocumentStatus } from '@prisma/client';
 
@@ -51,10 +50,11 @@ type ArchivedItem = {
 export const finalizeTspEnvelopeCompletion = async (opts: FinalizeTspEnvelopeCompletionOptions): Promise<void> => {
   const { envelope, envelopeCompletedAuditLog } = opts;
 
-  // Resolve the TSA up-front — fail fast if the instance is mis-configured
-  // before we start round-tripping PDF bytes through storage.
-  const tsa = resolveCscSealTimeTsa();
-  const timestampAuthority = buildLibpdfTsa(tsa);
+  // Resolve the seal-time timestamp authority up-front — fail fast if the
+  // instance is mis-configured before we start round-tripping PDF bytes
+  // through storage. Prefers the TSP's signatures/timestamp endpoint, falling
+  // back to the env-configured RFC 3161 TSA.
+  const timestampAuthority = await resolveCscSealTimeTsa();
 
   const archivedItems: ArchivedItem[] = [];
 
@@ -109,25 +109,5 @@ export const finalizeTspEnvelopeCompletion = async (opts: FinalizeTspEnvelopeCom
     await tx.documentAuditLog.create({
       data: envelopeCompletedAuditLog,
     });
-  });
-};
-
-/**
- * Wrap a resolved seal-time TSA config into a libpdf `TimestampAuthority`.
- *
- * Env only at seal time — the archival `/DocTimeStamp` is the operator's
- * long-term trust anchor and SHOULD point at a dedicated qualified archival
- * TSA (e.g. DigiCert) that's independent of the per-recipient TSP. We
- * deliberately don't fall back to the TSP here: doing so would couple the
- * archive's longevity to a TSP that may revoke or rotate without notice,
- * and would require keeping a live service-scope bearer around at the
- * seal-document job which has no recipient context anyway.
- *
- * First URL only — multi-URL fallback can layer on later via a composite
- * wrapper if operators need it.
- */
-const buildLibpdfTsa = (tsa: { urls: string[] }): TimestampAuthority => {
-  return new HttpTimestampAuthority(tsa.urls[0], {
-    timeout: NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY_TIMEOUT_MS(),
   });
 };

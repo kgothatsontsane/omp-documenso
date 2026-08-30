@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import type { Recipient } from '@prisma/client';
@@ -14,27 +15,41 @@ import { match } from 'ts-pattern';
 export const ensureFontLibrary = () => {
   const fontPath = path.join(process.cwd(), 'public/fonts');
 
-  if (!FontLibrary.has('Caveat')) {
+  const fontFile = (name: string) => path.join(fontPath, name);
+  const hasFont = (name: string) => fs.existsSync(fontFile(name));
+
+  if (!FontLibrary.has('Caveat') && hasFont('caveat.ttf')) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     FontLibrary.use({
-      ['Caveat']: [path.join(fontPath, 'caveat.ttf')],
+      ['Caveat']: [fontFile('caveat.ttf')],
     });
   }
 
-  if (!FontLibrary.has('Inter')) {
+  if (!FontLibrary.has('Inter') && hasFont('inter-variablefont_opsz,wght.ttf')) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     FontLibrary.use({
-      ['Inter']: [path.join(fontPath, 'inter-variablefont_opsz,wght.ttf')],
+      ['Inter']: [fontFile('inter-variablefont_opsz,wght.ttf')],
     });
   }
 
-  if (!FontLibrary.has('Noto Sans')) {
+  if (!FontLibrary.has('Noto Sans') && hasFont('noto-sans.ttf')) {
+    const notoSansFonts = [fontFile('noto-sans.ttf')];
+
+    if (hasFont('noto-sans-japanese.ttf')) {
+      notoSansFonts.push(fontFile('noto-sans-japanese.ttf'));
+    }
+
+    if (hasFont('noto-sans-chinese.ttf')) {
+      notoSansFonts.push(fontFile('noto-sans-chinese.ttf'));
+    }
+
+    if (hasFont('noto-sans-korean.ttf')) {
+      notoSansFonts.push(fontFile('noto-sans-korean.ttf'));
+    }
+
     // eslint-disable-next-line react-hooks/rules-of-hooks
     FontLibrary.use({
-      ['Noto Sans']: [path.join(fontPath, 'noto-sans.ttf')],
-      ['Noto Sans Japanese']: [path.join(fontPath, 'noto-sans-japanese.ttf')],
-      ['Noto Sans Chinese']: [path.join(fontPath, 'noto-sans-chinese.ttf')],
-      ['Noto Sans Korean']: [path.join(fontPath, 'noto-sans-korean.ttf')],
+      ['Noto Sans']: notoSansFonts,
     });
   }
 };

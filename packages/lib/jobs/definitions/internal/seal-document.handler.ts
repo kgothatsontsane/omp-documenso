@@ -347,13 +347,19 @@ export const run = async ({ payload, io }: { payload: TSealDocumentJobDefinition
   }
 
   if (shouldSendCompletedEmail) {
-    await sendDocumentCompletedEmails({
-      payload: {
-        envelopeId,
-        requestMetadata,
-      },
-      io,
-    });
+    try {
+      await sendDocumentCompletedEmails({
+        payload: {
+          envelopeId,
+          requestMetadata,
+        },
+        io,
+      });
+    } catch (error) {
+      // Notification email failure must never fail the seal itself — the
+      // envelope is already COMPLETED at this point.
+      io.logger.error('Failed to send document completed emails (envelope remains sealed):', error);
+    }
   }
 };
 

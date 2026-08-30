@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { esbuildPlugin } from '@trigger.dev/build/extensions';
-import { aptGet, syncVercelEnvVars } from '@trigger.dev/build/extensions/core';
+import { additionalFiles, aptGet, syncVercelEnvVars } from '@trigger.dev/build/extensions/core';
 import { prismaExtension } from '@trigger.dev/build/extensions/prisma';
 import { defineConfig } from '@trigger.dev/sdk';
 import type { Plugin } from 'esbuild';
@@ -66,18 +66,30 @@ export default defineConfig({
       '@playwright/browser-chromium',
       'chromium-bidi',
       'pdfjs-dist',
+      // Dynamic `import('@aws-sdk/s3-request-presigner')` breaks under esbuild's
+      // CJS->ESM interop (getSignedUrl ends up behind `default`). Keep it external
+      // so Node resolves it normally at runtime.
+      '@aws-sdk/s3-request-presigner',
+      '@aws-sdk/cloudfront-signer',
       // Prisma engine ships platform binaries; resolve at runtime. Client JS is
       // bundled by esbuild (CJS->ESM interop), so do NOT externalize it.
       '@prisma/engines',
     ],
     extensions: [
+      // PDF rendering reads branding assets from public/static at runtime.
+      additionalFiles({ files: ['./public/static', './public/fonts'] }),
+      // Vercel env sync is intentionally DISABLED: Vercel flags Sensitive vars as
+      // write-only, so the sync copies placeholder text ([SENSITIVE]) into
+      // Trigger and poisons working config (SMTP, R2, signing keys). Trigger env
+      // is managed directly via the Trigger API instead. See loop-engineering
+      // inbox/2026-08-29-credentials-and-followups.md.
+      // syncVercelEnvVars({
+      //   projectId: 'prj_JHJK5nzAnH5kBO1Iyz0JCjo4Ajwy',
+      //   vercelTeamId: 'team_mLc5syhhwDuEIz6BLsD2WqVc',
+      // }),
       // LibreOffice is needed by the docx-to-pdf conversion task.
       aptGet({
         packages: ['libreoffice'],
-      }),
-      syncVercelEnvVars({
-        projectId: 'prj_JHJK5nzAnH5kBO1Iyz0JCjo4Ajwy',
-        vercelTeamId: 'team_mLc5syhhwDuEIz6BLsD2WqVc',
       }),
       // Regenerate the Prisma client for the trigger.dev Linux runtime and
       // install the matching query engine. Without this, the bundled client

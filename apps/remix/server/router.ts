@@ -90,6 +90,13 @@ app.use(async (c, next) => {
   c.set('logger', honoLogger);
 
   await next();
+
+  // Never let Vercel's edge cache error responses. A transient failure (e.g. a
+  // cold-start fetch) that returns 4xx/5xx would otherwise be cached and served
+  // permanently as a stale 404/500. Success responses keep their own headers.
+  if (c.res.status >= 400) {
+    c.res.headers.set('Cache-Control', 'no-store, must-revalidate');
+  }
 });
 
 // Apply cors and rate limits to API routes.
@@ -155,7 +162,6 @@ if (!isExternalCron) {
 }
 
 // Start cron scheduler for background jobs (e.g. envelope expiration sweep).
-// No-op for Inngest provider which handles cron externally.
 if (!isExternalCron) {
   jobsClient.startCron();
 }

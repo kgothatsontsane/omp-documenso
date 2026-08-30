@@ -18,6 +18,7 @@ import { getSignatureFontFamily } from '../../constants/pdf';
 import { RECIPIENT_ROLE_SIGNING_REASONS, RECIPIENT_ROLES_DESCRIPTION } from '../../constants/recipient-roles';
 import type { TDocumentAuditLogBaseSchema } from '../../types/document-audit-logs';
 import { svgToPng } from '../../utils/images/svg-to-png';
+import { env } from '../../utils/env';
 import { ensureFontLibrary } from './helpers';
 
 type ColumnWidths = [number, number, number];
@@ -568,28 +569,40 @@ const renderBranding = async ({ qrToken, i18n }: { qrToken: string | null; i18n:
 
   const brandingHeight = 12;
 
+  // The cryptographic signer (the certificate issuer) depends on the configured
+  // signing transport. When Trusted Signatures is active we credit them as the
+  // signer and prefer their logo; otherwise fall back to the platform branding.
+  const isTrustedSignatures = env('NEXT_PRIVATE_SIGNING_TRANSPORT') === 'trusted-signatures';
+
+  const label = isTrustedSignatures
+    ? i18n._(msg`Cryptographic signature by`) + ': Trusted Signatures'
+    : i18n._(msg`Signing certificate provided by`) + ':';
+
   const text = new Konva.Text({
     x: 0,
     verticalAlign: 'middle',
-    text: i18n._(msg`Signing certificate provided by`) + ':',
+    text: label,
     fontStyle: fontMedium,
     fontFamily: 'Inter',
     fontSize: textSm,
     height: brandingHeight,
   });
 
-  const logoPath = path.join(process.cwd(), 'public/static/logo.png');
-  const logo = fs.readFileSync(logoPath);
+  const logoFileName = isTrustedSignatures ? 'trusted-signatures-logo.png' : 'logo.png';
+  const logoPath = path.join(process.cwd(), 'public/static', logoFileName);
+  const logo = fs.existsSync(logoPath) ? fs.readFileSync(logoPath) : null;
 
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  const img = new SkiaImage(logo) as unknown as HTMLImageElement;
+  const img = logo ? (new SkiaImage(logo) as unknown as HTMLImageElement) : null;
 
-  const documensoImage = new Konva.Image({
-    image: img,
-    height: brandingHeight,
-    width: brandingHeight * (img.width / img.height),
-    x: text.width() + 16,
-  });
+  const documensoImage = img
+    ? new Konva.Image({
+        image: img,
+        height: brandingHeight,
+        width: brandingHeight * (img.width / img.height),
+        x: text.width() + 16,
+      })
+    : null;
 
   const qrSize = qrToken ? 72 : 0;
 
@@ -597,7 +610,9 @@ const renderBranding = async ({ qrToken, i18n }: { qrToken: string | null; i18n:
     y: qrSize + 16,
   });
   logoGroup.add(text);
-  logoGroup.add(documensoImage);
+  if (documensoImage) {
+    logoGroup.add(documensoImage);
+  }
 
   branding.add(logoGroup);
 
