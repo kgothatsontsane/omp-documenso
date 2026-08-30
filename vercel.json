@@ -2,51 +2,17 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "builds": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "installCommand": "npm ci",
-        "buildCommand": "npx turbo run build --filter=@documenso/remix --force && rm -rf api/build && cp -R apps/remix/build api/build && cp apps/remix/package.json api/build/package.json",
-        "outputDirectory": "apps/remix/build/client"
-      }
-    },
-    {
       "src": "api/index.mjs",
       "use": "@vercel/node",
       "config": {
         "maxDuration": 60,
-        "excludeFiles": "**/*.po"
+        "excludeFiles": "**/*.po",
+        "includeFiles": ["apps/remix/build/**"]
       }
     }
   ],
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api" }
-  ],
-  "headers": [
-    {
-      "source": "/fonts/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/favicon(.*).png",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/apple-touch-icon(.*).png",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/favicon.ico",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    }
   ]
 }
