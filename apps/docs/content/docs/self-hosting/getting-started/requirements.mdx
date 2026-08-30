@@ -104,7 +104,7 @@ Documenso processes background jobs (email delivery, document processing) using 
 
 For production deployments that need higher throughput or more reliable job processing, Documenso supports [BullMQ](https://docs.bullmq.io/) as an alternative provider. BullMQ requires a **Redis** instance (v6.2+). Set `NEXT_PRIVATE_JOBS_PROVIDER=bullmq` and configure `NEXT_PRIVATE_REDIS_URL`.
 
-For managed/cloud deployments, [Inngest](https://www.inngest.com/) is also supported as a job provider. Set `NEXT_PRIVATE_JOBS_PROVIDER=inngest` and configure `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`.
+For managed/cloud deployments, [Trigger.dev](https://trigger.dev/) is also supported as a job provider. Set `NEXT_PRIVATE_JOBS_PROVIDER=trigger` and configure `TRIGGER_SECRET_KEY`.
 
 See [Background Jobs Configuration](/docs/self-hosting/configuration/background-jobs) for full details.
 

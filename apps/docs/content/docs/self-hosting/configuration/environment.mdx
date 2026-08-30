@@ -388,7 +388,7 @@ Documenso supports multiple background job providers for processing emails, docu
 
 | Variable                     | Description                                                                            | Default |
 | ---------------------------- | -------------------------------------------------------------------------------------- | ------- |
-| `NEXT_PRIVATE_JOBS_PROVIDER` | Jobs provider: `local` (PostgreSQL), `bullmq` (Redis), or `inngest` (managed service) | `local` |
+| `NEXT_PRIVATE_JOBS_PROVIDER` | Jobs provider: `local` (PostgreSQL), `bullmq` (Redis), or `trigger` (managed service) | `local` |
 
 ### Local (local)
 
@@ -406,14 +406,12 @@ No additional configuration required. Jobs are stored in PostgreSQL and processe
 | `NEXT_PRIVATE_REDIS_PREFIX`        | No       | Key prefix for Redis queues (useful when sharing an instance) | `documenso` |
 | `NEXT_PRIVATE_BULLMQ_CONCURRENCY` | No       | Number of concurrent jobs to process                          | `10`        |
 
-### Inngest (inngest)
+### Trigger (trigger)
 
-| Variable                         | Required | Description                                  |
-| -------------------------------- | -------- | -------------------------------------------- |
-| `NEXT_PRIVATE_INNGEST_EVENT_KEY` | Yes      | Inngest event key                            |
-| `INNGEST_EVENT_KEY`              | No       | Alternative Inngest event key                |
-| `INNGEST_SIGNING_KEY`            | Yes      | Inngest signing key for webhook verification |
-| `NEXT_PRIVATE_INNGEST_APP_ID`    | No       | Custom Inngest app ID                        |
+| Variable             | Required | Description                                  |
+| -------------------- | -------- | -------------------------------------------- |
+| `TRIGGER_SECRET_KEY` | Yes      | Trigger.dev project secret key               |
+| `TRIGGER_API_URL`    | No       | Custom Trigger.dev API URL (self-hosted)     |
 
 For setup guides and provider recommendations, see [Background Jobs](/docs/self-hosting/configuration/background-jobs).
 

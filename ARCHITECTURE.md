@@ -30,7 +30,7 @@ Documenso is an open-source document signing platform built as a **monorepo** us
 └──────────────┼──────────────────┼──────────────────┼────────────────────────┘
                │                  │                  │
         ┌──────┴──────┐    ┌──────┴──────┐    ┌──────┴──────┐
-        │  Database   │    │   Inngest/  │    │ Google KMS/ │
+        │  Database   │    │  Trigger/  │    │ Google KMS/ │
         │     S3      │    │    Local    │    │    Local    │
         └─────────────┘    └─────────────┘    └─────────────┘
 ```
@@ -79,7 +79,7 @@ Documenso is an open-source document signing platform built as a **monorepo** us
 | Styling  | Tailwind CSS, Radix UI, Shadcn UI |
 | Auth     | Arctic (OAuth), WebAuthn/Passkeys |
 | Email    | React Email, Nodemailer           |
-| Jobs     | Inngest / Local                   |
+| Jobs     | Trigger / Local                  |
 | Storage  | S3-compatible / Database          |
 | PDF      | @libpdf/core, pdfjs-dist          |
 | i18n     | Lingui                            |
@@ -147,10 +147,10 @@ Jobs handle async operations like email sending, document sealing, and webhooks.
 ```
 ┌─────────────────┐     ┌───────────────────────────────────────┐
 │ triggerJob()    │────▶│         Job Provider                  │
-│                 │     │  ┌─────────────┬─────────────────┐    │
-│ - name          │     │  │   Inngest   │      Local      │    │
-│ - payload       │     │  │   (Cloud)   │   (Database)    │    │
-└─────────────────┘     │  └─────────────┴─────────────────┘    │
+│                 │     │  ┌────────────┬──────────────┬──────┐  │
+│ - name          │     │  │  Trigger   │    BullMQ    │ Local│  │
+│ - payload       │     │  │  (Cloud)   │   (Redis)    │ (DB) │  │
+└─────────────────┘     │  └────────────┴──────────────┴──────┘  │
                         │                │                      │
                         │                ▼                      │
                         │    ┌─────────────────────┐            │
@@ -234,7 +234,7 @@ Processes async jobs.
 | -------- | --------------------- | ----------------- |
 | Local    | Database-backed queue | `local` (default) |
 | BullMQ   | Redis-backed queue    | `bullmq`          |
-| Inngest  | Managed cloud service | `inngest`         |
+| Trigger  | Managed cloud service | `trigger`         |
 
 **Config**: `NEXT_PRIVATE_JOBS_PROVIDER`
 
@@ -353,6 +353,6 @@ npm run test:e2e
 | `NEXT_PUBLIC_UPLOAD_TRANSPORT`   | Storage provider | `database`, `s3`                                  |
 | `NEXT_PRIVATE_SIGNING_TRANSPORT` | Signing provider | `local`, `gcloud-hsm`                             |
 | `NEXT_PRIVATE_SMTP_TRANSPORT`    | Email provider   | `smtp-auth`, `smtp-api`, `resend`, `mailchannels` |
-| `NEXT_PRIVATE_JOBS_PROVIDER`     | Jobs provider    | `local`, `inngest`                                |
+| `NEXT_PRIVATE_JOBS_PROVIDER`     | Jobs provider    | `local`, `trigger`                                |
 
 See `.env.example` for the complete list of configuration options.

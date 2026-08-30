@@ -337,7 +337,7 @@ For self-hosted deployments, retries are handled by the background-job provider 
 | -------- | -------------- | ------------ |
 | Local (default) | 4 | Back-to-back, with no backoff |
 | BullMQ | 3 | Exponential backoff starting at 1 second |
-| Inngest | 5 | Inngest platform backoff |
+| Trigger | 5 | Trigger.dev platform backoff |
 
 Only the individual delivery (`WebhookCall`) record is marked as failed. Documenso does not automatically disable the webhook or apply a circuit breaker, so future matching events continue to be delivered. After automatic attempts are exhausted, you can manually resend a failed delivery from the dashboard.
 

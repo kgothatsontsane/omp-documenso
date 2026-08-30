@@ -12,14 +12,14 @@ Documenso processes background jobs for email delivery, document sealing, webhoo
 
 | Provider | Backend    | Best For                                        | Infrastructure |
 | -------- | ---------- | ----------------------------------------------- | -------------- |
-| Inngest  | Managed    | Production with zero ops overhead               | None           |
+| Trigger  | Managed    | Production with zero ops overhead               | None           |
 | BullMQ   | Redis      | Self-hosted production with full control         | Redis          |
 | Local    | PostgreSQL | Development and small self-hosted deployments   | None           |
 
 Select a provider with the `NEXT_PRIVATE_JOBS_PROVIDER` environment variable:
 
 ```bash
-NEXT_PRIVATE_JOBS_PROVIDER=inngest  # or bullmq, local
+NEXT_PRIVATE_JOBS_PROVIDER=trigger  # or bullmq, local
 ```
 
 <Callout type="info">
@@ -28,31 +28,34 @@ NEXT_PRIVATE_JOBS_PROVIDER=inngest  # or bullmq, local
 
 ---
 
-## Inngest (Recommended)
+## Trigger (Recommended)
 
-[Inngest](https://www.inngest.com/) is a managed background job service. It handles scheduling, retries, concurrency, and observability without any infrastructure to manage. This is the recommended provider for production deployments.
+[Trigger.dev](https://trigger.dev/) is a managed background job service. It handles scheduling, retries, concurrency, and observability without any infrastructure to manage. This is the recommended provider for production deployments.
 
 ### Setup
 
 {/* prettier-ignore */}
-1. Create an account at [inngest.com](https://www.inngest.com/)
-2. Create an app and obtain your event key and signing key
+1. Create an account at [trigger.dev](https://trigger.dev/)
+2. Create a project and obtain your project secret key
 3. Configure the environment variables:
 
 ```bash
-NEXT_PRIVATE_JOBS_PROVIDER=inngest
-NEXT_PRIVATE_INNGEST_EVENT_KEY=your-event-key
-INNGEST_SIGNING_KEY=your-signing-key
+NEXT_PRIVATE_JOBS_PROVIDER=trigger
+TRIGGER_SECRET_KEY=tr_dev_your-secret-key
+```
+
+4. Deploy the worker:
+
+```bash
+npx trigger.dev@latest deploy
 ```
 
 ### Environment Variables
 
-| Variable                         | Description                                  | Required |
-| -------------------------------- | -------------------------------------------- | -------- |
-| `NEXT_PRIVATE_INNGEST_EVENT_KEY` | Inngest event key                            | Yes      |
-| `INNGEST_EVENT_KEY`              | Alternative Inngest event key                | No       |
-| `INNGEST_SIGNING_KEY`            | Inngest signing key for webhook verification | Yes      |
-| `NEXT_PRIVATE_INNGEST_APP_ID`    | Custom Inngest app ID                        | No       |
+| Variable               | Description                                  | Required |
+| ---------------------- | -------------------------------------------- | -------- |
+| `TRIGGER_SECRET_KEY`   | Trigger.dev project secret key               | Yes      |
+| `TRIGGER_API_URL`      | Custom Trigger.dev API URL (self-hosted)     | No       |
 
 ### Advantages
 
@@ -146,7 +149,7 @@ NEXT_PRIVATE_INTERNAL_WEBAPP_URL=http://localhost:3000
 This tells the job system to use the internal address instead of `NEXT_PUBLIC_WEBAPP_URL` for self-requests.
 
 <Callout type="warn">
-  The local provider is suitable for development and small deployments. For production workloads, use Inngest or BullMQ.
+  The local provider is suitable for development and small deployments. For production workloads, use Trigger or BullMQ.
 </Callout>
 
 ### Limitations
@@ -163,7 +166,7 @@ This tells the job system to use the internal address instead of `NEXT_PUBLIC_WE
 <Tabs items={['Managed hosting', 'Self-hosted production', 'Development']}>
 <Tab value="Managed hosting">
 
-Use **Inngest**. Zero infrastructure, automatic scaling, and built-in observability. The simplest path to reliable background jobs in production.
+Use **Trigger**. Zero infrastructure, automatic scaling, and built-in observability. The simplest path to reliable background jobs in production.
 
 </Tab>
 <Tab value="Self-hosted production">
