@@ -53,9 +53,14 @@ export const SignaturePadDraw = ({ className, value, onChange, ...props }: Signa
   const $imageData = useRef<ImageData | null>(null);
   const $fileInput = useRef<HTMLInputElement>(null);
 
+  // Current (in-progress) stroke points. Held in a ref instead of state so a
+  // pointermove never triggers a React re-render while drawing.
+  const $currentLine = useRef<Point[]>([]);
+  // Offscreen canvas accumulating all committed strokes + the loaded image.
+  const $committedCanvas = useRef<HTMLCanvasElement | null>(null);
+
   const [isPressed, setIsPressed] = useState(false);
   const [lines, setLines] = useState<Point[][]>([]);
-  const [currentLine, setCurrentLine] = useState<Point[]>([]);
   const [isSignatureValid, setIsSignatureValid] = useState<boolean | null>(null);
 
   const [selectedColor, setSelectedColor] = useState('black');
@@ -74,6 +79,51 @@ export const SignaturePadDraw = ({ className, value, onChange, ...props }: Signa
     } satisfies StrokeOptions;
   }, []);
 
+  const getCommittedCanvas = () => {
+    if (!$committedCanvas.current && $el.current) {
+      $committedCanvas.current = document.createElement('canvas');
+      $committedCanvas.current.width = $el.current.width;
+      $committedCanvas.current.height = $el.current.height;
+    }
+
+    return $committedCanvas.current;
+  };
+
+  const fillStroke = (ctx: CanvasRenderingContext2D, line: Point[]) => {
+    const pathData = new Path2D(getSvgPathFromStroke(getStroke(line, perfectFreehandOptions)));
+
+    ctx.fillStyle = selectedColor;
+    ctx.fill(pathData);
+  };
+
+  /**
+   * Redraws the visible canvas from the committed offscreen layer plus the
+   * in-progress stroke. Only the active stroke is re-rendered per move.
+   */
+  const redraw = () => {
+    const canvas = $el.current;
+    const ctx = canvas?.getContext('2d');
+
+    if (!canvas || !ctx) {
+      return;
+    }
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const committed = getCommittedCanvas();
+
+    if (committed) {
+      ctx.drawImage(committed, 0, 0);
+    }
+
+    if ($currentLine.current.length > 0) {
+      fillStroke(ctx, $currentLine.current);
+    }
+  };
+
   const onMouseDown = (event: MouseEvent | PointerEvent | TouchEvent) => {
     if (event.cancelable) {
       event.preventDefault();
@@ -83,7 +133,7 @@ export const SignaturePadDraw = ({ className, value, onChange, ...props }: Signa
 
     const point = Point.fromEvent(event, SIGNATURE_CANVAS_DPI, $el.current);
 
-    setCurrentLine([point]);
+    $currentLine.current = [point];
   };
 
   const onMouseMove = (event: MouseEvent | PointerEvent | TouchEvent) => {
@@ -96,31 +146,12 @@ export const SignaturePadDraw = ({ className, value, onChange, ...props }: Signa
     }
 
     const point = Point.fromEvent(event, SIGNATURE_CANVAS_DPI, $el.current);
-    const lastPoint = currentLine[currentLine.length - 1];
+    const lastPoint = $currentLine.current[$currentLine.current.length - 1];
 
     if (lastPoint && point.distanceTo(lastPoint) > 5) {
-      setCurrentLine([...currentLine, point]);
+      $currentLine.current = [...$currentLine.current, point];
 
-      // Update the canvas here to draw the lines
-      if ($el.current) {
-        const ctx = $el.current.getContext('2d');
-
-        if (ctx) {
-          ctx.restore();
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.fillStyle = selectedColor;
-
-          lines.forEach((line) => {
-            const pathData = new Path2D(getSvgPathFromStroke(getStroke(line, perfectFreehandOptions)));
-
-            ctx.fill(pathData);
-          });
-
-          const pathData = new Path2D(getSvgPathFromStroke(getStroke([...currentLine, point], perfectFreehandOptions)));
-          ctx.fill(pathData);
-        }
-      }
+      redraw();
     }
   };
 
@@ -135,35 +166,33 @@ export const SignaturePadDraw = ({ className, value, onChange, ...props }: Signa
 
     const newLines = [...lines];
 
-    if (addLine && currentLine.length > 0) {
-      newLines.push([...currentLine, point]);
-      setCurrentLine([]);
+    if (addLine && $currentLine.current.length > 0) {
+      newLines.push([...$currentLine.current, point]);
+      $currentLine.current = [...$currentLine.current, point];
     }
 
     setLines(newLines);
 
+    const committed = getCommittedCanvas();
+    const committedCtx = committed?.getContext('2d');
+
+    if (committedCtx) {
+      committedCtx.imageSmoothingEnabled = true;
+      committedCtx.imageSmoothingQuality = 'high';
+      fillStroke(committedCtx, $currentLine.current);
+    }
+
+    $currentLine.current = [];
+
+    redraw();
+
     if ($el.current && newLines.length > 0) {
-      const ctx = $el.current.getContext('2d');
+      const isValidSignature = checkSignatureValidity($el);
 
-      if (ctx) {
-        ctx.restore();
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.fillStyle = selectedColor;
+      setIsSignatureValid(isValidSignature);
 
-        newLines.forEach((line) => {
-          const pathData = new Path2D(getSvgPathFromStroke(getStroke(line, perfectFreehandOptions)));
-          ctx.fill(pathData);
-        });
-
-        const isValidSignature = checkSignatureValidity($el);
-
-        setIsSignatureValid(isValidSignature);
-
-        if (isValidSignature) {
-          onChange?.($el.current.toDataURL());
-        }
-        ctx.save();
+      if (isValidSignature) {
+        onChange?.($el.current.toDataURL());
       }
     }
   };
@@ -198,6 +227,14 @@ export const SignaturePadDraw = ({ className, value, onChange, ...props }: Signa
       $imageData.current = null;
     }
 
+    const committed = getCommittedCanvas();
+
+    if (committed) {
+      committed.getContext('2d')?.clearRect(0, 0, committed.width, committed.height);
+    }
+
+    $currentLine.current = [];
+
     if ($fileInput.current) {
       $fileInput.current.value = '';
     }
@@ -205,7 +242,6 @@ export const SignaturePadDraw = ({ className, value, onChange, ...props }: Signa
     onChange('');
 
     setLines([]);
-    setCurrentLine([]);
     setIsPressed(false);
   };
 
@@ -217,19 +253,25 @@ export const SignaturePadDraw = ({ className, value, onChange, ...props }: Signa
     const newLines = lines.slice(0, -1);
     setLines(newLines);
 
-    // Clear and redraw the canvas
-    const ctx = $el.current.getContext('2d');
-    const { width, height } = $el.current;
-    ctx?.clearRect(0, 0, width, height);
+    // Rebuild the committed layer from the remaining lines, then redraw.
+    const committed = getCommittedCanvas();
+    const committedCtx = committed?.getContext('2d');
 
-    if ($imageData.current) {
-      ctx?.putImageData($imageData.current, 0, 0);
+    if (committed && committedCtx) {
+      committedCtx.clearRect(0, 0, committed.width, committed.height);
+      committedCtx.imageSmoothingEnabled = true;
+      committedCtx.imageSmoothingQuality = 'high';
+
+      if ($imageData.current) {
+        committedCtx.putImageData($imageData.current, 0, 0);
+      }
+
+      newLines.forEach((line) => {
+        fillStroke(committedCtx, line);
+      });
     }
 
-    newLines.forEach((line) => {
-      const pathData = new Path2D(getSvgPathFromStroke(getStroke(line, perfectFreehandOptions)));
-      ctx?.fill(pathData);
-    });
+    redraw();
 
     onChange?.($el.current.toDataURL());
   };
@@ -253,6 +295,13 @@ export const SignaturePadDraw = ({ className, value, onChange, ...props }: Signa
         const defaultImageData = ctx?.getImageData(0, 0, width, height) || null;
 
         $imageData.current = defaultImageData;
+
+        // Bake the loaded image into the committed layer so a later move/undo
+        // redraw preserves it.
+        const committed = getCommittedCanvas();
+        const committedCtx = committed?.getContext('2d');
+
+        committedCtx?.drawImage(img, 0, 0, Math.min(width, img.width), Math.min(height, img.height));
       };
 
       img.src = value;
