@@ -9,17 +9,15 @@
         "buildCommand": "npx turbo run build --filter=@documenso/remix --force && rm -rf api/build && cp -R apps/remix/build api/build && cp apps/remix/package.json api/build/package.json",
         "outputDirectory": "apps/remix/build/client"
       }
-    },
-    {
-      "src": "api/index.mjs",
-      "use": "@vercel/node",
-      "config": {
-        "maxDuration": 60,
-        "excludeFiles": "**/*.po",
-        "includeFiles": "api/build/server/**"
-      }
     }
   ],
+  "functions": {
+    "api/index.mjs": {
+      "maxDuration": 60,
+      "includeFiles": "api/build/server/**",
+      "excludeFiles": "**/*.po"
+    }
+  },
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api" }
