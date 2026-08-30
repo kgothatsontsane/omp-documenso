@@ -65,7 +65,8 @@
 - NEVER push directly to `main` — every `main` push auto-deploys production.
 - Flow: work on `staging` → push → wait for the Vercel PREVIEW deploy →
   verify the preview URL with the protection-bypass header
-  (`x-vercel-protection-bypass: TrreQfzuPqrTBg3HHjo9eWGQ1qrtq1h6`) returns
+  (`x-vercel-protection-bypass: $VERCEL_BYPASS_TOKEN`, from Project →
+  Settings → Deployment Protection — NEVER commit it) returns
   HTTP 200 and no `FUNCTION_INVOCATION_FAILED` → only then
   `git merge --ff-only staging` onto `main` and push.
 - Rollback: `npx vercel promote https://<last-good-deploy-url>` instantly

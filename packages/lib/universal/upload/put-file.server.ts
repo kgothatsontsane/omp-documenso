@@ -4,6 +4,7 @@ import { DocumentDataType } from '@prisma/client';
 import { base64 } from '@scure/base';
 import { match } from 'ts-pattern';
 
+import { APP_DOCUMENT_UPLOAD_SIZE_LIMIT } from '../../constants/app';
 import { AppError } from '../../errors/app-error';
 import { createDocumentData } from '../../server-only/document-data/create-document-data';
 import { normalizePdf } from '../../server-only/pdf/normalize-pdf';
@@ -23,6 +24,12 @@ export const putPdfFileServerSide = async (file: File, initialData?: string) => 
   const isEncryptedDocumentsAllowed = false; // Was feature flag.
 
   const arrayBuffer = await file.arrayBuffer();
+
+  if (arrayBuffer.byteLength > APP_DOCUMENT_UPLOAD_SIZE_LIMIT * 1024 * 1024) {
+    throw new AppError('INVALID_DOCUMENT_FILE', {
+      message: `File is larger than ${APP_DOCUMENT_UPLOAD_SIZE_LIMIT}MB`,
+    });
+  }
 
   const pdf = await PDF.load(new Uint8Array(arrayBuffer)).catch((e) => {
     console.error(`PDF upload parse error: ${e.message}`);
@@ -53,6 +60,12 @@ export const putPdfFileServerSide = async (file: File, initialData?: string) => 
  */
 export const putNormalizedPdfFileServerSide = async (file: File, options: { flattenForm?: boolean } = {}) => {
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  if (buffer.byteLength > APP_DOCUMENT_UPLOAD_SIZE_LIMIT * 1024 * 1024) {
+    throw new AppError('INVALID_DOCUMENT_FILE', {
+      message: `File is larger than ${APP_DOCUMENT_UPLOAD_SIZE_LIMIT}MB`,
+    });
+  }
 
   const normalized = await normalizePdf(buffer, options);
 

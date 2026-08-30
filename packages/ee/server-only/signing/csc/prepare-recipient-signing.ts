@@ -7,9 +7,11 @@ import type { RequestMetadata } from '@documenso/lib/universal/extract-request-m
 import { getFileServerSide } from '@documenso/lib/universal/upload/get-file.server';
 import { putPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
+import { assertRecipientNotExpired } from '@documenso/lib/utils/recipients';
 import { prisma } from '@documenso/prisma';
 import type { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
 import { PDF } from '@libpdf/core';
+import { DocumentStatus, SigningStatus } from '@prisma/client';
 
 import { type CscDigest, policyToLibpdfSignerAlgo } from './algorithm-resolver';
 import { decodeCscCertChain } from './cert-chain';
@@ -91,6 +93,32 @@ export const prepareCscRecipientSigning = async (
   if (!isTspEnvelope(envelope)) {
     throw new AppError(AppErrorCode.INVALID_REQUEST, {
       message: 'prepareCscRecipientSigning called for a non-TSP envelope.',
+    });
+  }
+
+  // Mirror the lifecycle gates the SES path enforces in
+  // `complete-document-with-token.ts`: an expired signing window, a
+  // non-pending envelope, or a recipient who already signed/rejected must not
+  // be able to start (or continue) a CSC signing session.
+  if (envelope.status !== DocumentStatus.PENDING) {
+    throw new AppError(AppErrorCode.ENVELOPE_COMPLETED, {
+      message: `Envelope must be pending to start CSC signing, got status ${envelope.status}.`,
+    });
+  }
+
+  assertRecipientNotExpired(recipient);
+
+  if (recipient.signingStatus === SigningStatus.SIGNED) {
+    throw new AppError(AppErrorCode.UNKNOWN_ERROR, {
+      message: 'Recipient has already signed the document',
+      statusCode: 400,
+    });
+  }
+
+  if (recipient.signingStatus === SigningStatus.REJECTED) {
+    throw new AppError(AppErrorCode.UNKNOWN_ERROR, {
+      message: 'Recipient has already rejected the document',
+      statusCode: 400,
     });
   }
 

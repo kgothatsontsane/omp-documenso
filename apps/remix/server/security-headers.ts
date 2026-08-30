@@ -75,10 +75,20 @@ const buildCspHeader = ({ nonce, kind }: { nonce: string; kind: CspPathKind }) =
   // ignore `'self'` (and other host/scheme sources) when `'strict-dynamic'`
   // is present.
   const directives = [
+    `default-src 'none'`,
     `base-uri 'self'`,
     `object-src 'none'`,
     `form-action 'self'`,
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // PostHog telemetry is self-hosted at `${webappUrl}/ingest`; API/tRPC and
+    // document downloads are same-origin. External signing (TrustedSignatures)
+    // happens server-side, so no browser connect-src is needed beyond self.
+    `connect-src 'self'`,
+    // Signatures are rendered as `data:` images; PDF.js uses `blob:` URLs and
+    // user-uploaded avatars/logos may be remote `https:`.
+    `img-src 'self' data: blob: https:`,
+    `font-src 'self' data:`,
+    `media-src 'self' blob:`,
     // PDF.js (apps/remix/app/components/general/pdf-viewer/pdf-viewer.tsx)
     // creates a Web Worker via `new Worker(url)`. `'strict-dynamic'` does
     // not reliably propagate to worker creation across browsers, and

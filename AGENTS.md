@@ -12,10 +12,11 @@
 4. Verify the preview at runtime BEFORE any production deploy:
    ```bash
    # get preview URL from `npx vercel ls` (newest deployment)
-   BYPASS="TrreQfzuPqrTBg3HHjo9eWGQ1qrtq1h6"
+   # `$VERCEL_BYPASS_TOKEN` = your Vercel "Protection Bypass for Automation"
+   # token (Project → Settings → Deployment Protection). NEVER commit it.
    URL="https://<preview-uid>-open-mic-productions.vercel.app"
-   curl -s -o /dev/null -w "%{http_code}\n" -H "x-vercel-protection-bypass: $BYPASS" "$URL/signin"
-   curl -s -H "x-vercel-protection-bypass: $BYPASS" "$URL/signin" | grep -c "FUNCTION_INVOCATION_FAILED"
+   curl -s -o /dev/null -w "%{http_code}\n" -H "x-vercel-protection-bypass: $VERCEL_BYPASS_TOKEN" "$URL/signin"
+   curl -s -H "x-vercel-protection-bypass: $VERCEL_BYPASS_TOKEN" "$URL/signin" | grep -c "FUNCTION_INVOCATION_FAILED"
    ```
    Expected: `200` and no `FUNCTION_INVOCATION_FAILED`.
 5. Only if the preview is HTTP 200 with real content, merge to `main`:
