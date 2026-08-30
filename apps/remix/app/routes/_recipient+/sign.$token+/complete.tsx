@@ -1,4 +1,4 @@
-import signingCelebration from '@documenso/assets/images/signing-celebration.png';
+import signingCelebration from '@documenso/assets/images/signing-celebration.webp';
 import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session';
 import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
 import { isSignupEnabledForProvider } from '@documenso/lib/constants/auth';

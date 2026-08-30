@@ -1,4 +1,4 @@
-import backgroundPattern from '@documenso/assets/images/background-pattern.png';
+import backgroundPattern from '@documenso/assets/images/background-pattern.webp';
 import { Button } from '@documenso/ui/primitives/button';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';

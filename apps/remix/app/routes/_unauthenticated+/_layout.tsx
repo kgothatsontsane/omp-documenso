@@ -1,4 +1,4 @@
-import backgroundPattern from '@documenso/assets/images/background-pattern.png';
+import backgroundPattern from '@documenso/assets/images/background-pattern.webp';
 import { Outlet } from 'react-router';
 
 export default function Layout() {
@@ -8,7 +8,11 @@ export default function Layout() {
         <div className="absolute -inset-[min(600px,max(400px,60vw))] -z-[1] flex items-center justify-center opacity-70">
           <img
             src={backgroundPattern}
-            alt="background pattern"
+            alt=""
+            width={800}
+            height={567}
+            loading="eager"
+            fetchPriority="high"
             className="dark:brightness-95 dark:contrast-[70%] dark:invert dark:sepia"
             style={{
               mask: 'radial-gradient(rgba(255, 255, 255, 1) 0%, transparent 80%)',

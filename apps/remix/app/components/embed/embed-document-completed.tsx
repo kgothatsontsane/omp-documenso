@@ -1,4 +1,4 @@
-import signingCelebration from '@documenso/assets/images/signing-celebration.png';
+import signingCelebration from '@documenso/assets/images/signing-celebration.webp';
 import { SigningCard3D } from '@documenso/ui/components/signing-card';
 import { Trans } from '@lingui/react/macro';
 import type { Signature } from '@prisma/client';
