@@ -129,6 +129,12 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+        {/* Preload key fonts so the browser fetches them before text renders —
+            prevents the layout "jump" caused by font-display: swap fallback. */}
+        <link rel="preload" as="font" type="font/ttf" href="/fonts/inter-variablefont_opsz,wght.ttf" crossOrigin="anonymous" />
+        <link rel="preload" as="font" type="font/ttf" href="/fonts/inter-italic-variablefont_opsz,wght.ttf" crossOrigin="anonymous" />
+        <link rel="preload" as="font" type="font/ttf" href="/fonts/caveat-variablefont_wght.ttf" crossOrigin="anonymous" />
+        <link rel="preload" as="font" type="font/ttf" href="/fonts/noto-sans.ttf" crossOrigin="anonymous" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="google" content="notranslate" />
