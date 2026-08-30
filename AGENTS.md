@@ -1,5 +1,42 @@
 # Agent Guidelines for Documenso
 
+## PRODUCTION STABILITY (MANDATORY)
+
+**Production = `main` branch → auto-deploys to `https://agreements.open-mic.co.za`.**
+
+**NEVER push directly to `main`.** Always use the staging-first workflow:
+
+1. Create a `staging` branch from `main`: `git checkout -b staging main`
+2. Make changes, commit, push to `staging`: `git push origin staging`
+3. Wait for the Vercel **preview** deployment to reach READY (~10 min; `npx vercel ls`)
+4. Verify the preview at runtime BEFORE any production deploy:
+   ```bash
+   # get preview URL from `npx vercel ls` (newest deployment)
+   BYPASS="TrreQfzuPqrTBg3HHjo9eWGQ1qrtq1h6"
+   URL="https://<preview-uid>-open-mic-productions.vercel.app"
+   curl -s -o /dev/null -w "%{http_code}\n" -H "x-vercel-protection-bypass: $BYPASS" "$URL/signin"
+   curl -s -H "x-vercel-protection-bypass: $BYPASS" "$URL/signin" | grep -c "FUNCTION_INVOCATION_FAILED"
+   ```
+   Expected: `200` and no `FUNCTION_INVOCATION_FAILED`.
+5. Only if the preview is HTTP 200 with real content, merge to `main`:
+   ```bash
+   git checkout main && git merge --ff-only staging && git push origin main
+   ```
+6. Watch the production deploy reach READY, then verify `https://agreements.open-mic.co.za/signin` returns 200.
+
+**CRITICAL deployment constraints (do not change without re-verifying):**
+
+- `vercel.json` uses the **`functions`** key (NOT `builds`). `functions` and `builds` are mutually exclusive — combining them is a hard error.
+  - `api/index.mjs`: `includeFiles: "api/build/server/**"`
+  - `api/static.mjs`: `includeFiles: "api/build/client/**"`
+- `apps/remix/.bin/build.sh` MUST end by copying the build output to `api/build` (`rm -rf ../../api/build && cp -R build ../../api/build && cp package.json ../../api/build/package.json`). If that copy is removed, git-based deploys fail at runtime with `FUNCTION_INVOCATION_FAILED: Cannot find module '/var/task/api/build/server/hono/server/router.js'`.
+- `api/static.mjs` serves static assets (CSS, fonts, favicons) from `api/build/client` and MUST exist — do not delete it.
+- The `functions.includeFiles` globs are what make git-based deploys bundle the server code. Do not remove them.
+- `syncVercelEnvVars` is DISABLED in `apps/remix/trigger.config.ts` (Vercel sensitive env vars are write-only; syncing poisons Trigger). Do not re-enable.
+- `.env.vercel` and `.env.preview.local` contain live secrets and are gitignored — never commit them.
+
+**Rollback:** if production breaks, `npx vercel promote https://<last-good-deploy-url>` instantly repoints production.
+
 ## Build/Test/Lint Commands
 
 - `npm run build` - Build all packages
