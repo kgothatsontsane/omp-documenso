@@ -4,8 +4,6 @@
 # React Router
 /.react-router/
 /build/
-# Vercel deployment needs server build output
-!/build/
 
 # Vite
 vite.config.*.timestamp*

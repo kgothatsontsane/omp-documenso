@@ -14,10 +14,6 @@ coverage
 .next/
 out/
 build
-# Vercel deployment needs these build outputs (created during build, not committed)
-!/api/build
-!/apps/remix/build
-!/api/server-build
 
 # misc
 .DS_Store

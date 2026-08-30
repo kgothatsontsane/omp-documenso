@@ -6,7 +6,7 @@
       "use": "@vercel/static-build",
       "config": {
         "installCommand": "npm ci",
-        "buildCommand": "cd apps/remix && npm run build",
+        "buildCommand": "npx turbo run build --filter=@documenso/remix --force && rm -rf api/build && cp -R apps/remix/build api/build && cp apps/remix/package.json api/build/package.json",
         "outputDirectory": "apps/remix/build/client"
       }
     },
@@ -22,5 +22,31 @@
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api" }
+  ],
+  "headers": [
+    {
+      "source": "/fonts/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/favicon(.*).png",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/apple-touch-icon(.*).png",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/favicon.ico",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
   ]
 }
