@@ -134,6 +134,12 @@ export const DocumentsTable = ({
             </div>
           ),
         size: 100,
+        // Always pinned to the right edge so the row actions stay reachable even
+        // when the table overflows on narrow screens.
+        meta: {
+          headerClassName: 'sticky right-0 z-10 border-border border-l bg-background',
+          cellClassName: 'sticky right-0 z-10 border-border border-l bg-background',
+        },
       },
     );
 

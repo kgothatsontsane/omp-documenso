@@ -14,6 +14,15 @@ import { useMemo } from 'react';
 import { Skeleton } from './skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table';
 
+// Per-column styling hooks for the DataTable (e.g. sticky action columns).
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData, TValue> {
+    headerClassName?: string;
+    cellClassName?: string;
+  }
+}
+
 export type DataTableChildren<TData> = (_table: TTable<TData>) => React.ReactNode;
 
 export type { ColumnDef as DataTableColumnDef, RowSelectionState } from '@tanstack/react-table';
@@ -134,7 +143,11 @@ export function DataTable<TData, TValue>({
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} style={{ width: `${header.column.getSize()}px` }}>
+                    <TableHead
+                      key={header.id}
+                      className={header.column.columnDef.meta?.headerClassName}
+                      style={{ width: `${header.column.getSize()}px` }}
+                    >
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   );
@@ -154,6 +167,7 @@ export function DataTable<TData, TValue>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
+                      className={cell.column.columnDef.meta?.cellClassName}
                       style={{
                         width: `${cell.column.getSize()}px`,
                       }}
