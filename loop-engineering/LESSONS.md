@@ -113,3 +113,21 @@
 - Preview deploys cannot load PDFs (`connect-src 'self'` + localhost URLs) —
   verify pad behaviour via `[data-testid="signature-pad-dialog-button"]`, which
   works without the PDF.
+
+## 10. Dashboard lag was refetch storms, not slow queries
+- After two DB-side passes the dashboard still felt slow because React Query's
+  stock defaults (`staleTime: 0`, `refetchOnWindowFocus: true`) refetch the
+  entire dashboard on every mount and every alt-tab, and every mutation
+  invalidated the whole query cache (`packages/trpc/react/index.tsx`).
+- Fix: `staleTime: 30_000` + `refetchOnWindowFocus: false` in the QueryClient
+  defaults, a small invalidation denylist (inbox badge, quota flags), and a
+  30s-throttled focus listener in the LimitsProvider.
+- Measure where the lag lives before optimizing queries again: count HTTP
+  roundtrips per user action (mount, focus, mutation), not just SQL cost.
+
+## 11. Documents table: fixed layout beats auto layout
+- The DataTable sets per-cell widths but the table used auto layout, so content
+  (long titles, dates, sender names) forced horizontal scroll and pushed the
+  Actions column off-screen. Fix: `table-fixed` + compact column `size`s with
+  `truncate` cells; the DataTable now accepts `tableClassName` and applies
+  header widths too.
