@@ -97,3 +97,19 @@
   input → 1 DB hit per minute instead of per nav.
 - Do not remove the cache; if counts must be fresher, shorten the TTL rather
   than deleting it.
+
+## 9. Signature draw pad: never blit the full canvas per pointermove
+- The draw pad lagged because every pointermove did full-canvas `clearRect` +
+  `drawImage(committed)` blit + whole-stroke refill at 2x DPI, and every stroke
+  end synchronously PNG-encoded (`toDataURL`) + pixel-scanned the canvas.
+- Fix pattern (`packages/ui/primitives/signature-pad/signature-pad-draw.tsx`):
+  two stacked DOM canvases (committed base + transparent active-stroke overlay),
+  rAF-coalesced redraws (1/frame max), `setPointerCapture` so strokes survive
+  leaving the pad, rect cached on pointerdown, `push` not spread, and the
+  coverage check + `toDataURL` deferred via `setTimeout(0)` off the pointerup path.
+- Measured on the deployed pad: 0.089ms/event handler, 0.157ms/frame redraw.
+- Known pre-existing quirk (old AND new code): dialog "Sign" stays enabled after
+  "Clear Signature" — upstream SignaturePad/localSignature wiring, unchanged here.
+- Preview deploys cannot load PDFs (`connect-src 'self'` + localhost URLs) —
+  verify pad behaviour via `[data-testid="signature-pad-dialog-button"]`, which
+  works without the PDF.
