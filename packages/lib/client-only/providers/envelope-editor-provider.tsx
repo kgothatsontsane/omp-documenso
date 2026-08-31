@@ -17,6 +17,7 @@ import { EnvelopeType, Prisma, ReadStatus, SendStatus, SigningStatus } from '@pr
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
+import { isDeepEqual } from 'remeda';
 
 import type { TDocumentEmailSettings } from '../../types/document-email';
 import { formatDocumentsPath, formatTemplatesPath } from '../../utils/teams';
@@ -270,10 +271,11 @@ export const EnvelopeEditorProvider = ({
         fields = mapLocalFieldsToFields({ envelope, localFields });
       }
 
-      setEnvelope((prev) => ({
-        ...prev,
-        fields,
-      }));
+      // Skip the state update when the server response matches what we already
+      // have: a fresh array identity would otherwise re-render the entire
+      // editor tree (every Konva page) for a no-op save — noticeable jank
+      // while dialogs are open.
+      setEnvelope((prev) => (isDeepEqual(prev.fields, fields) ? prev : { ...prev, fields }));
 
       setAutosaveError(false);
 
