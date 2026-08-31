@@ -131,3 +131,17 @@
   Actions column off-screen. Fix: `table-fixed` + compact column `size`s with
   `truncate` cells; the DataTable now accepts `tableClassName` and applies
   header widths too.
+
+## 12. Duplicate emails: Trigger retries re-run sendMail
+- Email jobs send BEFORE writing the EMAIL_SENT audit row. Any failure after
+  sendMail (audit write, reminder update, a later recipient) triggers a run
+  retry → the same email sends again ("duplicate notification" bug).
+- Fix: `hasEmailBeenSent(envelopeId, recipientId, emailType)` guard before
+  sendMail (audit-row based) + `sendStatus === SENT` check in the signing
+  handler; the cancelled handler now also writes an audit row (it had none).
+- Email handlers run in the TRIGGER WORKER — a worker redeploy is required
+  for email fixes to take effect (Vercel deploys don't update it).
+- Template-use "Create as draft" dead button: (a) putPdfFile fetch had no
+  timeout — a stalled upload POST left isSubmitting stuck and the fieldset
+  permanently disabled; (b) array-root validation errors had no FormMessage —
+  invalid file type/size silently no-opped the submit.
