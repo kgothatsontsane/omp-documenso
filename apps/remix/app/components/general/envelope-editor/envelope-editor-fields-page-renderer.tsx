@@ -17,6 +17,8 @@ import { renderField } from '@documenso/lib/universal/field-renderer/render-fiel
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
 import { getOverlappingFieldPairs } from '@documenso/lib/utils/fields-overlap';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
+import { cn } from '@documenso/ui/lib/utils';
+import { Button } from '@documenso/ui/primitives/button';
 import {
   Command,
   CommandDialog,
@@ -33,6 +35,7 @@ import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Transformer } from 'konva/lib/shapes/Transformer';
 import {
+  CheckIcon,
   CopyIcon,
   CopyPlusIcon,
   FileStackIcon,
@@ -866,6 +869,28 @@ const FieldActionButtons = ({
   const [showRecipientSelector, setShowRecipientSelector] = useState(false);
   const [showFieldTypeSelector, setShowFieldTypeSelector] = useState(false);
   const [pageSelectorMode, setPageSelectorMode] = useState<'duplicate' | 'move' | null>(null);
+  const [selectedPages, setSelectedPages] = useState<number[]>([]);
+
+  const toggleSelectedPage = (page: number) => {
+    setSelectedPages((prev) => (prev.includes(page) ? prev.filter((p) => p !== page) : [...prev, page]));
+  };
+
+  const applySelectedPages = () => {
+    if (pageSelectorMode === null || selectedPages.length === 0) {
+      return;
+    }
+
+    for (const page of selectedPages) {
+      if (pageSelectorMode === 'move') {
+        handleMoveSelectedFieldsToPage(page);
+      } else {
+        handleDuplicateSelectedFieldsToPage(page);
+      }
+    }
+
+    setPageSelectorMode(null);
+    setSelectedPages([]);
+  };
 
   const { editorFields, envelope } = useCurrentEnvelopeEditor();
 
@@ -1060,14 +1085,20 @@ const FieldActionButtons = ({
       <CommandDialog
         position="start"
         open={pageSelectorMode !== null}
-        onOpenChange={(open) => setPageSelectorMode(open ? pageSelectorMode : null)}
+        onOpenChange={(open) => {
+          setPageSelectorMode(open ? pageSelectorMode : null);
+
+          if (!open) {
+            setSelectedPages([]);
+          }
+        }}
       >
         <Command>
           <CommandInput
             placeholder={
               pageSelectorMode === 'move'
-                ? t`Select a page to move the selected fields to`
-                : t`Select a page to duplicate the selected fields to`
+                ? t`Select the pages to move the selected fields to`
+                : t`Select the pages to duplicate the selected fields to`
             }
           />
 
@@ -1083,16 +1114,18 @@ const FieldActionButtons = ({
                 <CommandItem
                   key={page}
                   className="px-2"
-                  onSelect={() => {
-                    if (pageSelectorMode === 'move') {
-                      handleMoveSelectedFieldsToPage(page);
-                    } else {
-                      handleDuplicateSelectedFieldsToPage(page);
-                    }
-
-                    setPageSelectorMode(null);
-                  }}
+                  // Multi-select: toggling must not close the dialog.
+                  onSelect={() => toggleSelectedPage(page)}
                 >
+                  <div
+                    className={cn(
+                      'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border',
+                      selectedPages.includes(page) ? 'border-primary bg-primary' : 'border-muted-foreground/40',
+                    )}
+                  >
+                    {selectedPages.includes(page) && <CheckIcon className="h-3 w-3 text-primary-foreground" />}
+                  </div>
+
                   {pageSelectorMode === 'move' ? (
                     <FileSymlinkIcon className="mr-2 h-4 w-4" />
                   ) : (
@@ -1103,6 +1136,18 @@ const FieldActionButtons = ({
               ))}
             </CommandGroup>
           </CommandList>
+
+          <div className="flex items-center justify-end gap-2 border-border border-t pt-3">
+            <Button variant="secondary" size="sm" onClick={() => setPageSelectorMode(null)}>
+              {t`Cancel`}
+            </Button>
+
+            <Button size="sm" disabled={selectedPages.length === 0} onClick={applySelectedPages}>
+              {pageSelectorMode === 'move'
+                ? t`Move to ${selectedPages.length} page${selectedPages.length === 1 ? '' : 's'}`
+                : t`Duplicate to ${selectedPages.length} page${selectedPages.length === 1 ? '' : 's'}`}
+            </Button>
+          </div>
         </Command>
       </CommandDialog>
     </div>

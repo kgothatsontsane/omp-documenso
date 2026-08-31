@@ -42,6 +42,9 @@ export const putPdfFile = async (file: File, options?: PutFileOptions) => {
     method: 'POST',
     headers: buildUploadAuthHeaders(options),
     body: formData,
+    // Bound the upload: a stalled POST would otherwise hang the caller's
+    // submit state forever (e.g. a form fieldset stuck on isSubmitting).
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (!response.ok) {

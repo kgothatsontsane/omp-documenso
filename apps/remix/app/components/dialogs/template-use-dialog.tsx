@@ -430,6 +430,18 @@ export function TemplateUseDialog({
 
                 {form.watch('useCustomDocument') && (
                   <div className="my-4 space-y-2">
+                    {/* Array-root errors (invalid file type, size limit) have nowhere
+                        else to render — without this the submit silently no-ops. */}
+                    <FormField
+                      control={form.control}
+                      name="customDocumentData"
+                      render={() => (
+                        <FormItem>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
                     {isLoadingEnvelopeItems ? (
                       <SpinnerBox className="py-16" />
                     ) : (
