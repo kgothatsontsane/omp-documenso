@@ -36,6 +36,7 @@ import {
   CopyIcon,
   CopyPlusIcon,
   FileStackIcon,
+  FileSymlinkIcon,
   ShapesIcon,
   SquareStackIcon,
   TrashIcon,
@@ -659,6 +660,20 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     setSelectedFields([]);
   };
 
+  const movedSelectedFieldsToPage = (page: number) => {
+    const fields = selectedKonvaFieldGroups
+      .map((field) => editorFields.getFieldByFormId(field.id()))
+      .filter((field) => field !== undefined);
+
+    for (const field of fields) {
+      if (field.page !== page) {
+        editorFields.updateFieldByFormId(field.formId, { page });
+      }
+    }
+
+    setSelectedFields([]);
+  };
+
   const copySelectedFields = () => {
     const fields = selectedKonvaFieldGroups
       .map((field) => editorFields.getFieldByFormId(field.id()))
@@ -668,7 +683,9 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
   };
 
   /**
-   * ⌘C / Ctrl+C copies the current Konva selection into the editor clipboard.
+   * Selection-scoped keyboard shortcuts:
+   * - ⌘C / Ctrl+C copies the current Konva selection into the editor clipboard.
+   * - Delete / Backspace removes the selected fields.
    * Only the page instance holding the selection reacts; other pages no-op.
    */
   useEffect(() => {
@@ -679,7 +696,13 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
         return;
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c' && selectedKonvaFieldGroups.length > 0) {
+      if (selectedKonvaFieldGroups.length === 0) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+
+      if ((event.metaKey || event.ctrlKey) && key === 'c') {
         event.preventDefault();
 
         const fields = selectedKonvaFieldGroups
@@ -687,6 +710,10 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
           .filter((field) => field !== undefined);
 
         editorFields.copyFields(fields);
+      } else if (key === 'delete' || key === 'backspace') {
+        event.preventDefault();
+
+        deletedSelectedFields();
       }
     };
 
@@ -760,6 +787,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
             handleDuplicateSelectedFields={duplicatedSelectedFields}
             handleDuplicateSelectedFieldsOnAllPages={duplicatedSelectedFieldsOnAllPages}
             handleDuplicateSelectedFieldsToPage={duplicatedSelectedFieldsToPage}
+            handleMoveSelectedFieldsToPage={movedSelectedFieldsToPage}
             handleCopySelectedFields={copySelectedFields}
             handleDeleteSelectedFields={deletedSelectedFields}
             handleChangeRecipient={changeSelectedFieldsRecipients}
@@ -813,6 +841,7 @@ type FieldActionButtonsProps = React.HTMLAttributes<HTMLDivElement> & {
   handleDuplicateSelectedFields: () => void;
   handleDuplicateSelectedFieldsOnAllPages: () => void;
   handleDuplicateSelectedFieldsToPage: (page: number) => void;
+  handleMoveSelectedFieldsToPage: (page: number) => void;
   handleCopySelectedFields: () => void;
   handleDeleteSelectedFields: () => void;
   handleChangeRecipient: (recipientId: number) => void;
@@ -824,6 +853,7 @@ const FieldActionButtons = ({
   handleDuplicateSelectedFields,
   handleDuplicateSelectedFieldsOnAllPages,
   handleDuplicateSelectedFieldsToPage,
+  handleMoveSelectedFieldsToPage,
   handleCopySelectedFields,
   handleDeleteSelectedFields,
   handleChangeRecipient,
@@ -835,7 +865,7 @@ const FieldActionButtons = ({
 
   const [showRecipientSelector, setShowRecipientSelector] = useState(false);
   const [showFieldTypeSelector, setShowFieldTypeSelector] = useState(false);
-  const [showPageSelector, setShowPageSelector] = useState(false);
+  const [pageSelectorMode, setPageSelectorMode] = useState<'duplicate' | 'move' | null>(null);
 
   const { editorFields, envelope } = useCurrentEnvelopeEditor();
 
@@ -942,10 +972,20 @@ const FieldActionButtons = ({
           type="button"
           title={t`Duplicate to page…`}
           className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
-          onClick={() => setShowPageSelector(true)}
-          onTouchEnd={() => setShowPageSelector(true)}
+          onClick={() => setPageSelectorMode('duplicate')}
+          onTouchEnd={() => setPageSelectorMode('duplicate')}
         >
           <FileStackIcon className="h-3 w-3" />
+        </button>
+
+        <button
+          type="button"
+          title={t`Move to page…`}
+          className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
+          onClick={() => setPageSelectorMode('move')}
+          onTouchEnd={() => setPageSelectorMode('move')}
+        >
+          <FileSymlinkIcon className="h-3 w-3" />
         </button>
 
         <button
@@ -1017,9 +1057,19 @@ const FieldActionButtons = ({
           </CommandList>
         </Command>
       </CommandDialog>
-      <CommandDialog position="start" open={showPageSelector} onOpenChange={setShowPageSelector}>
+      <CommandDialog
+        position="start"
+        open={pageSelectorMode !== null}
+        onOpenChange={(open) => setPageSelectorMode(open ? pageSelectorMode : null)}
+      >
         <Command>
-          <CommandInput placeholder={t`Select a page to duplicate the selected fields to`} />
+          <CommandInput
+            placeholder={
+              pageSelectorMode === 'move'
+                ? t`Select a page to move the selected fields to`
+                : t`Select a page to duplicate the selected fields to`
+            }
+          />
 
           <CommandList>
             <CommandEmpty>
@@ -1034,11 +1084,20 @@ const FieldActionButtons = ({
                   key={page}
                   className="px-2"
                   onSelect={() => {
-                    handleDuplicateSelectedFieldsToPage(page);
-                    setShowPageSelector(false);
+                    if (pageSelectorMode === 'move') {
+                      handleMoveSelectedFieldsToPage(page);
+                    } else {
+                      handleDuplicateSelectedFieldsToPage(page);
+                    }
+
+                    setPageSelectorMode(null);
                   }}
                 >
-                  <FileStackIcon className="mr-2 h-4 w-4" />
+                  {pageSelectorMode === 'move' ? (
+                    <FileSymlinkIcon className="mr-2 h-4 w-4" />
+                  ) : (
+                    <FileStackIcon className="mr-2 h-4 w-4" />
+                  )}
                   <span className="truncate">{t`Page ${page}`}</span>
                 </CommandItem>
               ))}
