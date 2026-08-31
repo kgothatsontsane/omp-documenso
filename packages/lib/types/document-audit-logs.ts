@@ -71,6 +71,7 @@ export const ZDocumentAuditLogEmailTypeSchema = z.enum([
   'ASSISTING_REQUEST',
   'CC',
   'DOCUMENT_COMPLETED',
+  'DOCUMENT_CANCELLED',
   'REMINDER',
 ]);
 

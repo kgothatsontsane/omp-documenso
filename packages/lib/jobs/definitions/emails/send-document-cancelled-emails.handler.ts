@@ -8,8 +8,11 @@ import { createElement } from 'react';
 import { getI18nInstance } from '../../../client-only/providers/i18n-server';
 import { NEXT_PUBLIC_WEBAPP_URL } from '../../../constants/app';
 import { getEmailContext } from '../../../server-only/email/get-email-context';
+import { hasEmailBeenSent } from '../../../server-only/email/has-email-been-sent';
 import { assertOrganisationRatesAndLimits } from '../../../server-only/rate-limit/assert-organisation-rates-and-limits';
+import { DOCUMENT_AUDIT_LOG_TYPE } from '../../../types/document-audit-logs';
 import { extractDerivedDocumentEmailSettings } from '../../../types/document-email';
+import { createDocumentAuditLogData } from '../../../utils/document-audit-logs';
 import { unsafeBuildEnvelopeIdQuery } from '../../../utils/envelope';
 import { renderEmailWithI18N } from '../../../utils/render-email-with-i18n';
 import type { JobRunIO } from '../../client/_internal/job';
@@ -103,6 +106,11 @@ export const run = async ({ payload, io }: { payload: TSendDocumentCancelledEmai
   await io.runTask('send-cancellation-emails', async () => {
     await Promise.all(
       recipientsToNotify.map(async (recipient) => {
+        // Idempotency: a Trigger retry must not re-send the cancellation email.
+        if (await hasEmailBeenSent(envelope.id, recipient.id, 'DOCUMENT_CANCELLED')) {
+          return;
+        }
+
         // Meter the cancellation email against the organisation email quota/stats.
         // The recipient never opted in, so this notification is unsolicited and
         // must be bounded by the same org limits as other outbound emails.
@@ -152,6 +160,22 @@ export const run = async ({ payload, io }: { payload: TSendDocumentCancelledEmai
           subject: i18n._(msg`Document "${envelope.title}" Cancelled`),
           html,
           text,
+        });
+
+        // Record the send so retries are skipped (see hasEmailBeenSent).
+        await prisma.documentAuditLog.create({
+          data: createDocumentAuditLogData({
+            type: DOCUMENT_AUDIT_LOG_TYPE.EMAIL_SENT,
+            envelopeId: envelope.id,
+            data: {
+              emailType: 'DOCUMENT_CANCELLED',
+              recipientEmail: recipient.email,
+              recipientName: recipient.name,
+              recipientId: recipient.id,
+              recipientRole: recipient.role,
+              isResending: false,
+            },
+          }),
         });
       }),
     );

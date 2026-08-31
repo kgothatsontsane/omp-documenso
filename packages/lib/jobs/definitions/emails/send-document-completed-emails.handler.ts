@@ -7,6 +7,7 @@ import { createElement } from 'react';
 import { getI18nInstance } from '../../../client-only/providers/i18n-server';
 import { NEXT_PUBLIC_WEBAPP_URL } from '../../../constants/app';
 import { getEmailContext } from '../../../server-only/email/get-email-context';
+import { hasEmailBeenSent } from '../../../server-only/email/has-email-been-sent';
 import { assertOrganisationRatesAndLimits } from '../../../server-only/rate-limit/assert-organisation-rates-and-limits';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '../../../types/document-audit-logs';
 import { extractDerivedDocumentEmailSettings } from '../../../types/document-email';
@@ -119,6 +120,8 @@ export const run = async ({ payload, io }: { payload: TSendDocumentCompletedEmai
   //    - Recipient emails are disabled
   if (
     isOwnerDocumentCompletedEmailEnabled &&
+    // Idempotency: a Trigger retry must not re-send the completion email.
+    !(await hasEmailBeenSent(envelope.id, owner.id, 'DOCUMENT_COMPLETED')) &&
     (!envelope.recipients.find((recipient) => recipient.email === owner.email) || !isDocumentCompletedEmailEnabled)
   ) {
     const template = createElement(DocumentCompletedEmailTemplate, {
@@ -179,6 +182,11 @@ export const run = async ({ payload, io }: { payload: TSendDocumentCompletedEmai
 
   await Promise.all(
     recipientsToNotify.map(async (recipient) => {
+      // Idempotency: a Trigger retry must not re-send the completion email.
+      if (await hasEmailBeenSent(envelope.id, recipient.id, 'DOCUMENT_COMPLETED')) {
+        return;
+      }
+
       // A CC recipient never asked to be part of this document, so their completion
       // email is effectively unsolicited. Meter it against the organisation email
       // quota/stats so it is correctly logged.

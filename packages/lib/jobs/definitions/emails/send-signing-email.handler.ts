@@ -17,6 +17,7 @@ import { NEXT_PUBLIC_WEBAPP_URL } from '../../../constants/app';
 import { RECIPIENT_ROLE_TO_EMAIL_TYPE, RECIPIENT_ROLES_DESCRIPTION } from '../../../constants/recipient-roles';
 import { buildEnvelopeEmailHeaders } from '../../../server-only/email/build-envelope-email-headers';
 import { getEmailContext } from '../../../server-only/email/get-email-context';
+import { hasEmailBeenSent } from '../../../server-only/email/has-email-been-sent';
 import { assertOrganisationRatesAndLimits } from '../../../server-only/rate-limit/assert-organisation-rates-and-limits';
 import { updateRecipientNextReminder } from '../../../server-only/recipient/update-recipient-next-reminder';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '../../../types/document-audit-logs';
@@ -78,6 +79,16 @@ export const run = async ({ payload, io }: { payload: TSendSigningEmailJobDefini
   const { documentMeta, team } = envelope;
 
   if (recipient.role === RecipientRole.CC) {
+    return;
+  }
+
+  // Idempotency: a Trigger retry (or a duplicate queued trigger) must not
+  // re-send an invitation that already went out.
+  if (recipient.sendStatus === SendStatus.SENT) {
+    return;
+  }
+
+  if (await hasEmailBeenSent(envelope.id, recipient.id, RECIPIENT_ROLE_TO_EMAIL_TYPE[recipient.role])) {
     return;
   }
 
