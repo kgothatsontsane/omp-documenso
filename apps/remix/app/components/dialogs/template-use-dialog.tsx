@@ -88,6 +88,16 @@ export function TemplateUseDialog({
 
   const [open, setOpen] = useState(false);
 
+  const utils = trpc.useUtils();
+
+  /**
+   * Warm the envelope-items query while the user moves toward the button so
+   * the dialog opens with data instead of a loading spinner.
+   */
+  const prefetchEnvelopeItems = () => {
+    void utils.envelope.item.getMany.prefetch({ envelopeId });
+  };
+
   const { data: response, isLoading: isLoadingEnvelopeItems } = trpc.envelope.item.getMany.useQuery(
     {
       envelopeId,
@@ -215,14 +225,16 @@ export function TemplateUseDialog({
 
   return (
     <Dialog open={open} onOpenChange={(value) => !form.formState.isSubmitting && setOpen(value)}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="outline" className="bg-background">
-            <Plus className="mr-2 -ml-1 h-4 w-4" />
-            <Trans>Use Template</Trans>
-          </Button>
-        )}
-      </DialogTrigger>
+      <span onMouseEnter={prefetchEnvelopeItems} onFocus={prefetchEnvelopeItems}>
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button variant="outline" className="bg-background">
+              <Plus className="mr-2 -ml-1 h-4 w-4" />
+              <Trans>Use Template</Trans>
+            </Button>
+          )}
+        </DialogTrigger>
+      </span>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
