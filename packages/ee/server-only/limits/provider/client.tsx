@@ -69,7 +69,18 @@ export const LimitsProvider = ({
       return;
     }
 
+    // Throttled like the SessionProvider: an unthrottled focus listener made
+    // every alt-tab fire a /api/limits request on top of the other refetches.
+    const lastRefreshAtRef = { current: 0 };
+    const REFRESH_INTERVAL_MS = 30_000;
+
     const onFocus = () => {
+      if (Date.now() - lastRefreshAtRef.current < REFRESH_INTERVAL_MS) {
+        return;
+      }
+
+      lastRefreshAtRef.current = Date.now();
+
       void refreshLimits();
     };
 

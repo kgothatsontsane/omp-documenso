@@ -85,16 +85,27 @@ export const DocumentsTable = ({
       {
         header: _(msg`Created`),
         accessorKey: 'createdAt',
-        cell: ({ row }) => i18n.date(row.original.createdAt, { ...DateTime.DATETIME_SHORT, hourCycle: 'h12' }),
+        cell: ({ row }) => (
+          <span className="block truncate whitespace-nowrap">
+            {i18n.date(row.original.createdAt, { ...DateTime.DATETIME_SHORT, hourCycle: 'h12' })}
+          </span>
+        ),
+        size: 130,
       },
       {
         header: _(msg`Title`),
         cell: ({ row }) => <DataTableTitle row={row.original} teamUrl={team?.url} teamEmail={team?.teamEmail?.email} />,
+        size: 220,
       },
       {
         id: 'sender',
         header: _(msg`Sender`),
-        cell: ({ row }) => row.original.user.name ?? row.original.user.email,
+        cell: ({ row }) => (
+          <span className="block truncate" title={row.original.user.name ?? row.original.user.email}>
+            {row.original.user.name ?? row.original.user.email}
+          </span>
+        ),
+        size: 130,
       },
       {
         header: _(msg`Recipient`),
@@ -102,18 +113,19 @@ export const DocumentsTable = ({
         cell: ({ row }) => (
           <StackAvatarsWithTooltip recipients={row.original.recipients} documentStatus={row.original.status} />
         ),
+        size: 130,
       },
       {
         header: _(msg`Status`),
         accessorKey: 'status',
         cell: ({ row }) => <DocumentStatus status={row.original.status} />,
-        size: 140,
+        size: 110,
       },
       {
         header: _(msg`Actions`),
         cell: ({ row }) =>
           (!row.original.deletedAt || isDocumentCompleted(row.original.status)) && (
-            <div className="flex items-center gap-x-4">
+            <div className="flex items-center gap-x-2">
               <DocumentsTableActionButton row={row.original} />
               <DocumentsTableActionDropdown
                 row={row.original}
@@ -121,6 +133,7 @@ export const DocumentsTable = ({
               />
             </div>
           ),
+        size: 100,
       },
     );
 
@@ -146,6 +159,7 @@ export const DocumentsTable = ({
   return (
     <div className="relative">
       <DataTable
+        tableClassName="table-fixed"
         columns={columns}
         data={results.data}
         perPage={results.perPage}
@@ -233,11 +247,7 @@ const DataTableTitle = ({ row, teamUrl, teamEmail }: DataTableTitleProps) => {
     isCurrentTeamDocument,
   })
     .with({ isOwner: true }, { isCurrentTeamDocument: true }, () => (
-      <Link
-        to={formatPath}
-        title={row.title}
-        className="block max-w-[10rem] truncate font-medium hover:underline md:max-w-[20rem]"
-      >
+      <Link to={formatPath} title={row.title} className="block w-full truncate font-medium hover:underline">
         {row.title}
       </Link>
     ))
@@ -245,12 +255,10 @@ const DataTableTitle = ({ row, teamUrl, teamEmail }: DataTableTitleProps) => {
       <Link
         to={`/sign/${recipient?.token}`}
         title={row.title}
-        className="block max-w-[10rem] truncate font-medium hover:underline md:max-w-[20rem]"
+        className="block w-full truncate font-medium hover:underline"
       >
         {row.title}
       </Link>
     ))
-    .otherwise(() => (
-      <span className="block max-w-[10rem] truncate font-medium hover:underline md:max-w-[20rem]">{row.title}</span>
-    ));
+    .otherwise(() => <span className="block w-full truncate font-medium hover:underline">{row.title}</span>);
 };

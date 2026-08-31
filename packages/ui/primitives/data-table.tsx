@@ -45,6 +45,12 @@ export interface DataTableProps<TData, TValue> {
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: (selection: RowSelectionState) => void;
   getRowId?: (row: TData) => string;
+  /**
+   * Class applied to the underlying <table> element. Pass `table-fixed` (with
+   * explicit column `size`s) to make the table always fit its container instead
+   * of overflowing into horizontal scroll.
+   */
+  tableClassName?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -67,6 +73,7 @@ export function DataTable<TData, TValue>({
   rowSelection,
   onRowSelectionChange,
   getRowId,
+  tableClassName,
 }: DataTableProps<TData, TValue>) {
   const pagination = useMemo<PaginationState>(() => {
     if (currentPage !== undefined && perPage !== undefined) {
@@ -121,13 +128,13 @@ export function DataTable<TData, TValue>({
   return (
     <>
       <div className="rounded-md border">
-        <Table>
+        <Table className={tableClassName}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} style={{ width: `${header.column.getSize()}px` }}>
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   );
