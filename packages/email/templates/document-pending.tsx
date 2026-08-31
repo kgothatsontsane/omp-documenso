@@ -26,7 +26,7 @@ export const DocumentPendingEmailTemplate = ({
         <Section className="bg-background">
           <Container className="mx-auto mt-8 mb-2 max-w-xl rounded-lg border border-border border-solid p-4 backdrop-blur-sm">
             <Section>
-              <TemplateBrandingLogo assetBaseUrl={assetBaseUrl} className="mb-4 h-6" />
+              <TemplateBrandingLogo assetBaseUrl={assetBaseUrl} className="mb-6 h-16" />
 
               <TemplateDocumentPending documentName={documentName} assetBaseUrl={assetBaseUrl} />
             </Section>
