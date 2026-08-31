@@ -166,6 +166,7 @@ export const DocumentsTable = ({
     <div className="relative">
       <DataTable
         tableClassName="table-fixed"
+        enableColumnResize
         columns={columns}
         data={results.data}
         perPage={results.perPage}

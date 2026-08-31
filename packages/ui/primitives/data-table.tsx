@@ -1,4 +1,4 @@
-import { Trans } from '@lingui/react/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import type {
   ColumnDef,
   PaginationState,
@@ -11,6 +11,7 @@ import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-tabl
 import type React from 'react';
 import { useMemo } from 'react';
 
+import { cn } from '../lib/utils';
 import { Skeleton } from './skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table';
 
@@ -60,6 +61,11 @@ export interface DataTableProps<TData, TValue> {
    * of overflowing into horizontal scroll.
    */
   tableClassName?: string;
+  /**
+   * Enables drag-to-resize handles on the header cells. Column widths are held
+   * in table state (not persisted).
+   */
+  enableColumnResize?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -83,7 +89,9 @@ export function DataTable<TData, TValue>({
   onRowSelectionChange,
   getRowId,
   tableClassName,
+  enableColumnResize,
 }: DataTableProps<TData, TValue>) {
+  const { t } = useLingui();
   const pagination = useMemo<PaginationState>(() => {
     if (currentPage !== undefined && perPage !== undefined) {
       return {
@@ -121,6 +129,8 @@ export function DataTable<TData, TValue>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    columnResizeMode: 'onChange',
+    enableColumnResizing: enableColumnResize ?? false,
     state: {
       pagination: manualPagination ? pagination : undefined,
       columnVisibility,
@@ -145,10 +155,28 @@ export function DataTable<TData, TValue>({
                   return (
                     <TableHead
                       key={header.id}
-                      className={header.column.columnDef.meta?.headerClassName}
+                      className={cn('relative', header.column.columnDef.meta?.headerClassName)}
                       style={{ width: `${header.column.getSize()}px` }}
                     >
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+
+                      {enableColumnResize && header.column.getCanResize() && (
+                        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+                        <div
+                          role="separator"
+                          aria-orientation="vertical"
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          onDoubleClick={() => header.column.resetSize()}
+                          title={t`Drag to resize, double-click to reset`}
+                          className={cn(
+                            'absolute top-0 right-0 h-full w-1.5 cursor-col-resize touch-none select-none',
+                            'after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-border',
+                            'hover:after:w-0.5 hover:after:bg-primary/50',
+                            header.column.getIsResizing() && 'after:bg-primary',
+                          )}
+                        />
+                      )}
                     </TableHead>
                   );
                 })}
