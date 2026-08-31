@@ -88,6 +88,9 @@ const buildCspHeader = ({ nonce, kind }: { nonce: string; kind: CspPathKind }) =
     // user-uploaded avatars/logos may be remote `https:`.
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
+    // Without this, the manifest fetch falls back to `default-src 'none'`
+    // and the browser blocks /site.webmanifest (shows as an error in DevTools).
+    `manifest-src 'self'`,
     `media-src 'self' blob:`,
     // PDF.js (apps/remix/app/components/general/pdf-viewer/pdf-viewer.tsx)
     // creates a Web Worker via `new Worker(url)`. `'strict-dynamic'` does
