@@ -145,3 +145,17 @@
   timeout — a stalled upload POST left isSubmitting stuck and the fieldset
   permanently disabled; (b) array-root validation errors had no FormMessage —
   invalid file type/size silently no-opped the submit.
+
+## 13. Static assets through a function = the #1 function-duration cost
+- Every /assets /fonts /static /favicon request was routed to api/static.mjs —
+  a billed serverless invocation per asset (10-30 per page load). On Pro this
+  dominates function-duration billing.
+- Fix: build.sh mirrors build/client/{assets,fonts,static,bimi} + root
+  favicons/webmanifest/robots to the deployment root; vercel.json routes are
+  now just `handle: filesystem` + the /api catch-all, so the CDN/edge serves
+  assets (verified via x-vercel-cache: HIT, age headers) with zero invocations.
+- api/static.mjs is kept as an unbundled fallback; if asset routes ever break,
+  suspect this change first and check `handle: filesystem` ordering.
+- Next duration lever if still high: /api/files PDF streaming (documents are
+  base64 in Postgres — MBs per view through the function). Fix = object
+  storage (R2/S3) migration.
