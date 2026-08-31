@@ -233,6 +233,10 @@ export const EnvelopeEditorProvider = ({
         variant: 'destructive',
         duration: 7500,
       });
+
+      // Rethrow so the autosave pump records the failure and flush()/saveAll()
+      // can report it (otherwise a manual Save/Retry looks like a success).
+      throw err;
     }
   }, 1000);
 
@@ -294,6 +298,10 @@ export const EnvelopeEditorProvider = ({
         variant: 'destructive',
         duration: 7500,
       });
+
+      // Rethrow so the autosave pump records the failure and flush()/saveAll()
+      // can report it (otherwise a manual Save/Retry looks like a success).
+      throw err;
     }
   }, 2000);
 
@@ -349,6 +357,10 @@ export const EnvelopeEditorProvider = ({
         variant: 'destructive',
         duration: 7500,
       });
+
+      // Rethrow so the autosave pump records the failure and flush()/saveAll()
+      // can report it (otherwise a manual Save/Retry looks like a success).
+      throw err;
     }
   }, 1000);
 

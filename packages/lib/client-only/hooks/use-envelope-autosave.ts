@@ -16,6 +16,11 @@ export function useEnvelopeAutosave<T>(saveFn: (data: T) => Promise<void>, delay
   // The save currently running, if any. Shared so we never kick off two at once.
   const commitPromiseRef = useRef<Promise<void> | null>(null);
 
+  // Whether any save failed since the last flush. The pump catches errors so
+  // the queue keeps draining (and `void commit()` never rejects unhandled);
+  // flush() rethrows so callers like the header Save button can react.
+  const failedRef = useRef(false);
+
   // saveFn closes over editor state, so keep the latest one around without
   // making triggerSave/flush depend on it.
   const saveFnRef = useRef(saveFn);
@@ -45,7 +50,13 @@ export function useEnvelopeAutosave<T>(saveFn: (data: T) => Promise<void>, delay
           const { value } = pendingRef.current;
           pendingRef.current = null;
 
-          await saveFnRef.current(value);
+          try {
+            await saveFnRef.current(value);
+          } catch (err) {
+            // Record the failure and keep draining the queue; flush() reports it.
+            failedRef.current = true;
+            console.error(err);
+          }
         }
       } finally {
         // eslint-disable-next-line require-atomic-updates
@@ -81,6 +92,10 @@ export function useEnvelopeAutosave<T>(saveFn: (data: T) => Promise<void>, delay
   /**
    * Skip the debounce and save now. The editor calls this when it needs
    * everything persisted, e.g. before sending or switching steps.
+   *
+   * Rejects if any save that ran during this flush failed, so callers like
+   * the header Save/Retry button can surface the failure instead of
+   * reporting a false success.
    */
   const flush = useCallback(async () => {
     if (timeoutRef.current) {
@@ -89,6 +104,12 @@ export function useEnvelopeAutosave<T>(saveFn: (data: T) => Promise<void>, delay
     }
 
     await commit();
+
+    if (failedRef.current) {
+      failedRef.current = false;
+
+      throw new Error('One or more autosaves failed');
+    }
   }, [commit]);
 
   // Last-ditch attempt to save if the tab closes with unsaved edits.

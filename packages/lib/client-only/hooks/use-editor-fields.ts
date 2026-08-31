@@ -371,7 +371,8 @@ export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsPr
         }),
       );
 
-      copies.forEach((copy) => append(copy));
+      // Single append (array form) — one re-render instead of one per copy.
+      append(copies);
       triggerFieldsUpdate();
 
       return copies;
@@ -413,7 +414,8 @@ export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsPr
         }),
       );
 
-      pasted.forEach((field) => append(field));
+      // Single append (array form) — one re-render instead of one per copy.
+      append(pasted);
       triggerFieldsUpdate();
 
       return pasted;

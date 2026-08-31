@@ -64,9 +64,15 @@ export default function EnvelopeEditorHeader() {
     } catch (err) {
       console.error(err);
 
+      // Surface the underlying reason (pool timeout, validation error, etc.).
+      const detail = err instanceof Error && err.message ? ` (${err.message})` : '';
+
       toast({
         title: t`Save failed`,
-        description: t`We encountered an error while attempting to save your changes. Your changes cannot be saved at this time.`,
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        description:
+          (t`We encountered an error while attempting to save your changes. Your changes cannot be saved at this time.` +
+            detail) as string,
         variant: 'destructive',
         duration: 7500,
       });
