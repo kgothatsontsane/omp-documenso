@@ -77,3 +77,18 @@ tmp/
 # opencode
 .opencode/package-lock.json
 /public
+
+# Root-level static output mirrored by apps/remix/.bin/build.sh for CDN serving
+/assets/
+/fonts/
+/static/
+/bimi/
+/android-chrome-192x192.png
+/android-chrome-512x512.png
+/apple-touch-icon.png
+/favicon.ico
+/favicon-16x16.png
+/favicon-32x32.png
+/opengraph-image.jpg
+/robots.txt
+/site.webmanifest

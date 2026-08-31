@@ -55,6 +55,26 @@ rm -rf ../../api/build
 cp -R build ../../api/build
 cp package.json ../../api/build/package.json
 
+# Mirror the client output to the deployment root so vercel.json's
+# `handle: filesystem` serves assets from Vercel's CDN instead of invoking the
+# api/static function for every JS/CSS/font/image request (each was a billed
+# function invocation; a page load fired 10-30 of them).
+rm -rf ../../assets ../../fonts ../../static ../../bimi
+cp -R build/client/assets ../../assets
+cp -R build/client/fonts ../../fonts
+cp -R build/client/static ../../static
+[ -d build/client/bimi ] && cp -R build/client/bimi ../../bimi || true
+cp build/client/android-chrome-192x192.png \
+   build/client/android-chrome-512x512.png \
+   build/client/apple-touch-icon.png \
+   build/client/favicon.ico \
+   build/client/favicon-16x16.png \
+   build/client/favicon-32x32.png \
+   build/client/opengraph-image.jpg \
+   build/client/robots.txt \
+   build/client/site.webmanifest \
+   ../../
+
 # Time taken
 end_time=$(date +%s)
 
