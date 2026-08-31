@@ -6,6 +6,7 @@ import {
   type PageRenderData,
   useCurrentEnvelopeRender,
 } from '@documenso/lib/client-only/providers/envelope-render-provider';
+import { getPdfPagesCount } from '@documenso/lib/constants/pdf-viewer';
 import { FIELD_META_DEFAULT_VALUES } from '@documenso/lib/types/field-meta';
 import {
   convertPixelToPercentage,
@@ -31,7 +32,15 @@ import type { FieldType } from '@prisma/client';
 import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Transformer } from 'konva/lib/shapes/Transformer';
-import { CopyPlusIcon, ShapesIcon, SquareStackIcon, TrashIcon, UserCircleIcon } from 'lucide-react';
+import {
+  CopyIcon,
+  CopyPlusIcon,
+  FileStackIcon,
+  ShapesIcon,
+  SquareStackIcon,
+  TrashIcon,
+  UserCircleIcon,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { fieldButtonList } from './envelope-editor-fields-drag-drop';
@@ -640,6 +649,53 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     setSelectedFields([]);
   };
 
+  const duplicatedSelectedFieldsToPage = (page: number) => {
+    const fields = selectedKonvaFieldGroups
+      .map((field) => editorFields.getFieldByFormId(field.id()))
+      .filter((field) => field !== undefined);
+
+    editorFields.duplicateFieldsToPage(fields, page);
+
+    setSelectedFields([]);
+  };
+
+  const copySelectedFields = () => {
+    const fields = selectedKonvaFieldGroups
+      .map((field) => editorFields.getFieldByFormId(field.id()))
+      .filter((field) => field !== undefined);
+
+    editorFields.copyFields(fields);
+  };
+
+  /**
+   * ⌘C / Ctrl+C copies the current Konva selection into the editor clipboard.
+   * Only the page instance holding the selection reacts; other pages no-op.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c' && selectedKonvaFieldGroups.length > 0) {
+        event.preventDefault();
+
+        const fields = selectedKonvaFieldGroups
+          .map((field) => editorFields.getFieldByFormId(field.id()))
+          .filter((field) => field !== undefined);
+
+        editorFields.copyFields(fields);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKonvaFieldGroups]);
+
   /**
    * Create a field from a pending field.
    */
@@ -703,6 +759,8 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
           <FieldActionButtons
             handleDuplicateSelectedFields={duplicatedSelectedFields}
             handleDuplicateSelectedFieldsOnAllPages={duplicatedSelectedFieldsOnAllPages}
+            handleDuplicateSelectedFieldsToPage={duplicatedSelectedFieldsToPage}
+            handleCopySelectedFields={copySelectedFields}
             handleDeleteSelectedFields={deletedSelectedFields}
             handleChangeRecipient={changeSelectedFieldsRecipients}
             handleChangeFieldType={changeSelectedFieldsType}
@@ -754,6 +812,8 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 type FieldActionButtonsProps = React.HTMLAttributes<HTMLDivElement> & {
   handleDuplicateSelectedFields: () => void;
   handleDuplicateSelectedFieldsOnAllPages: () => void;
+  handleDuplicateSelectedFieldsToPage: (page: number) => void;
+  handleCopySelectedFields: () => void;
   handleDeleteSelectedFields: () => void;
   handleChangeRecipient: (recipientId: number) => void;
   handleChangeFieldType: (type: FieldType) => void;
@@ -763,6 +823,8 @@ type FieldActionButtonsProps = React.HTMLAttributes<HTMLDivElement> & {
 const FieldActionButtons = ({
   handleDuplicateSelectedFields,
   handleDuplicateSelectedFieldsOnAllPages,
+  handleDuplicateSelectedFieldsToPage,
+  handleCopySelectedFields,
   handleDeleteSelectedFields,
   handleChangeRecipient,
   handleChangeFieldType,
@@ -773,6 +835,7 @@ const FieldActionButtons = ({
 
   const [showRecipientSelector, setShowRecipientSelector] = useState(false);
   const [showFieldTypeSelector, setShowFieldTypeSelector] = useState(false);
+  const [showPageSelector, setShowPageSelector] = useState(false);
 
   const { editorFields, envelope } = useCurrentEnvelopeEditor();
 
@@ -877,6 +940,26 @@ const FieldActionButtons = ({
 
         <button
           type="button"
+          title={t`Duplicate to page…`}
+          className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
+          onClick={() => setShowPageSelector(true)}
+          onTouchEnd={() => setShowPageSelector(true)}
+        >
+          <FileStackIcon className="h-3 w-3" />
+        </button>
+
+        <button
+          type="button"
+          title={t`Copy (⌘C)`}
+          className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
+          onClick={handleCopySelectedFields}
+          onTouchEnd={handleCopySelectedFields}
+        >
+          <CopyIcon className="h-3 w-3" />
+        </button>
+
+        <button
+          type="button"
           title={t`Remove`}
           className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
           onClick={handleDeleteSelectedFields}
@@ -930,6 +1013,35 @@ const FieldActionButtons = ({
                   </CommandItem>
                 );
               })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </CommandDialog>
+      <CommandDialog position="start" open={showPageSelector} onOpenChange={setShowPageSelector}>
+        <Command>
+          <CommandInput placeholder={t`Select a page to duplicate the selected fields to`} />
+
+          <CommandList>
+            <CommandEmpty>
+              <span className="inline-block px-4 text-muted-foreground">
+                {t`No page matching this description was found.`}
+              </span>
+            </CommandEmpty>
+
+            <CommandGroup>
+              {Array.from({ length: getPdfPagesCount() }, (_, index) => index + 1).map((page) => (
+                <CommandItem
+                  key={page}
+                  className="px-2"
+                  onSelect={() => {
+                    handleDuplicateSelectedFieldsToPage(page);
+                    setShowPageSelector(false);
+                  }}
+                >
+                  <FileStackIcon className="mr-2 h-4 w-4" />
+                  <span className="truncate">{t`Page ${page}`}</span>
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>

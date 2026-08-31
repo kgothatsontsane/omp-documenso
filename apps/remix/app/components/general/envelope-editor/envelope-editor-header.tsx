@@ -3,6 +3,7 @@ import { getEnvelopeItemPermissions, mapSecondaryIdToTemplateId } from '@documen
 import { Badge } from '@documenso/ui/primitives/badge';
 import { Button } from '@documenso/ui/primitives/button';
 import { Separator } from '@documenso/ui/primitives/separator';
+import { useToast } from '@documenso/ui/primitives/use-toast';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { DocumentStatus, EnvelopeType, TemplateType } from '@prisma/client';
 import {
@@ -11,10 +12,11 @@ import {
   Globe2Icon,
   LockIcon,
   RefreshCwIcon,
+  SaveIcon,
   SendIcon,
   SettingsIcon,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { match } from 'ts-pattern';
 
@@ -31,6 +33,7 @@ import { EnvelopeItemTitleInput } from './envelope-editor-title-input';
 
 export default function EnvelopeEditorHeader() {
   const { t } = useLingui();
+  const { toast } = useToast();
 
   const {
     envelope,
@@ -39,10 +42,38 @@ export default function EnvelopeEditorHeader() {
     isEmbedded,
     updateEnvelope,
     autosaveError,
+    isAutosaving,
+    saveAll,
     relativePath,
     editorConfig,
     flushAutosave,
   } = useCurrentEnvelopeEditor();
+
+  const [isManualSaving, setIsManualSaving] = useState(false);
+
+  const handleManualSave = async () => {
+    setIsManualSaving(true);
+
+    try {
+      await saveAll();
+
+      toast({
+        title: t`Saved`,
+        description: t`All changes have been saved successfully.`,
+      });
+    } catch (err) {
+      console.error(err);
+
+      toast({
+        title: t`Save failed`,
+        description: t`We encountered an error while attempting to save your changes. Your changes cannot be saved at this time.`,
+        variant: 'destructive',
+        duration: 7500,
+      });
+    } finally {
+      setIsManualSaving(false);
+    }
+  };
 
   const {
     embedded,
@@ -162,6 +193,13 @@ export default function EnvelopeEditorHeader() {
                   <Trans>Sync failed, changes not saved</Trans>
                 </Badge>
 
+                <button onClick={() => void handleManualSave()}>
+                  <Badge variant="destructive" className="shrink-0">
+                    <RefreshCwIcon className="mr-2 h-4 w-4" />
+                    <Trans>Retry Save</Trans>
+                  </Badge>
+                </button>
+
                 <button
                   onClick={() => {
                     window.location.reload();
@@ -194,6 +232,17 @@ export default function EnvelopeEditorHeader() {
               }
             />
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleManualSave()}
+            disabled={isManualSaving || isAutosaving}
+            title={t`Save all changes`}
+          >
+            <SaveIcon className={isManualSaving || isAutosaving ? 'mr-2 h-4 w-4 animate-pulse' : 'mr-2 h-4 w-4'} />
+            <Trans>Save</Trans>
+          </Button>
 
           {match({ isEmbedded, isDocument, isTemplate, allowDistributing })
             .with({ isEmbedded: false, isDocument: true, allowDistributing: true }, () => (

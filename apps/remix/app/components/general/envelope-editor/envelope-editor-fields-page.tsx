@@ -30,7 +30,7 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { DocumentStatus, FieldType, RecipientRole } from '@prisma/client';
-import { AlertTriangleIcon, FileTextIcon, PencilIcon, SparklesIcon } from 'lucide-react';
+import { AlertTriangleIcon, FileTextIcon, PencilIcon, RedoIcon, SparklesIcon, UndoIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRevalidator, useSearchParams } from 'react-router';
 import { isDeepEqual } from 'remeda';
@@ -186,6 +186,46 @@ export const EnvelopeEditorFieldsPage = () => {
     editorFields.setSelectedRecipient(firstSelectableRecipient?.id ?? null);
   }, []);
 
+  /**
+   * Editor keyboard shortcuts: undo/redo and paste. Copy (⌘C) is handled at
+   * the page renderer, which owns the Konva selection.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+
+      // Don't hijack shortcuts while typing in inputs.
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      if (!(event.metaKey || event.ctrlKey)) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+
+      if (key === 'z') {
+        event.preventDefault();
+
+        if (event.shiftKey) {
+          editorFields.redo();
+        } else {
+          editorFields.undo();
+        }
+      } else if (key === 'v') {
+        event.preventDefault();
+
+        editorFields.pasteFields();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onDetectClick = () => {
     if (!team.preferences.aiFeaturesEnabled) {
       setIsAiEnableDialogOpen(true);
@@ -311,9 +351,37 @@ export const EnvelopeEditorFieldsPage = () => {
         <div className="sticky top-0 h-full w-80 flex-shrink-0 overflow-y-auto border-border border-l bg-background py-4">
           {/* Recipient selector section. */}
           <section className="px-4">
-            <h3 className="mb-2 font-semibold text-foreground text-sm">
-              <Trans>Selected Recipient</Trans>
-            </h3>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="font-semibold text-foreground text-sm">
+                <Trans>Selected Recipient</Trans>
+              </h3>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={!editorFields.canUndo}
+                  onClick={() => editorFields.undo()}
+                  title={_(msg`Undo (⌘Z)`)}
+                >
+                  <UndoIcon className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={!editorFields.canRedo}
+                  onClick={() => editorFields.redo()}
+                  title={_(msg`Redo (⌘⇧Z)`)}
+                >
+                  <RedoIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
 
             <EnvelopeRecipientSelector
               selectedRecipient={editorFields.selectedRecipient}

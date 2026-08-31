@@ -57,6 +57,12 @@ type EnvelopeEditorProviderValue = {
 
   isAutosaving: boolean;
   flushAutosave: () => Promise<TEditorEnvelope>;
+  /**
+   * Re-queues the current editor state and flushes every autosave. Unlike
+   * `flushAutosave`, a save that previously failed (its data was dropped from
+   * the debounce queue) is retried with the latest state.
+   */
+  saveAll: () => Promise<TEditorEnvelope>;
   autosaveError: boolean;
   resetForms: () => void;
 
@@ -491,6 +497,17 @@ export const EnvelopeEditorProvider = ({
     return envelopeRef.current;
   };
 
+  /**
+   * Manual save. A failed autosave drops its data from the debounce queue, so
+   * re-trigger the fields save with the current state before flushing — this
+   * is the retry path behind the header "Save" button.
+   */
+  const saveAll = async (): Promise<TEditorEnvelope> => {
+    setFieldsDebounced(editorFields.localFields);
+
+    return flushAutosave();
+  };
+
   return (
     <EnvelopeEditorContext.Provider
       value={{
@@ -510,6 +527,7 @@ export const EnvelopeEditorProvider = ({
         editorRecipients,
         autosaveError,
         flushAutosave,
+        saveAll,
         isAutosaving,
         relativePath,
         syncEnvelope,
