@@ -43,7 +43,7 @@
   "packageManager": "npm@11.11.0",
   "engines": {
     "npm": ">=11.11.0",
-    "node": ">=22.0.0"
+    "node": "22.x"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
