@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { env } from '@documenso/lib/utils/env';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import type { Recipient } from '@prisma/client';
 import { FieldType } from '@prisma/client';
@@ -51,6 +52,22 @@ export const ensureFontLibrary = () => {
     FontLibrary.use({
       ['Noto Sans']: notoSansFonts,
     });
+  }
+
+  // Let operators match the overlay font to the document's own font: drop the
+  // document's .ttf into public/fonts and point these vars at it. The family
+  // name must match the one the signer previewed in the editor (e.g. Inter).
+  const overrideFamily = env('NEXT_PRIVATE_SIGNING_FONT_FAMILY');
+  const overrideFile = env('NEXT_PRIVATE_SIGNING_FONT_FILE');
+
+  if (overrideFamily && overrideFile) {
+    const candidate = path.isAbsolute(overrideFile)
+      ? overrideFile
+      : path.join(fontPath, overrideFile);
+    if (fs.existsSync(candidate)) {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      FontLibrary.use({ [overrideFamily]: [candidate] });
+    }
   }
 };
 

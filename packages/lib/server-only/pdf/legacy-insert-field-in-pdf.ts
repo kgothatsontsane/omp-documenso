@@ -1,6 +1,9 @@
 // https://github.com/Hopding/pdf-lib/issues/20#issuecomment-412852821
+import * as fs from 'node:fs';
+import path from 'node:path';
 import type { PDFDocument } from '@cantoo/pdf-lib';
 import { degrees, RotationTypes, radiansToDegrees, rgb } from '@cantoo/pdf-lib';
+import { env } from '@documenso/lib/utils/env';
 import {
   DEFAULT_HANDWRITING_FONT_SIZE,
   DEFAULT_STANDARD_FONT_SIZE,
@@ -28,10 +31,26 @@ import {
 import { getPageSize } from './get-page-size';
 
 export const legacy_insertFieldInPDF = async (pdf: PDFDocument, field: FieldWithSignature) => {
-  const [fontCaveat, fontNoto] = await Promise.all([
-    fetch(`${NEXT_PRIVATE_INTERNAL_WEBAPP_URL()}/fonts/caveat.ttf`).then(async (res) => res.arrayBuffer()),
-    fetch(`${NEXT_PRIVATE_INTERNAL_WEBAPP_URL()}/fonts/noto-sans.ttf`).then(async (res) => res.arrayBuffer()),
-  ]);
+  const fontCaveat = await fetch(`${NEXT_PRIVATE_INTERNAL_WEBAPP_URL()}/fonts/caveat.ttf`).then(async (res) =>
+    res.arrayBuffer(),
+  );
+
+  // Override the document font so the overlay matches the font already used
+  // in the document: drop its .ttf into public/fonts and set
+  // NEXT_PRIVATE_SIGNING_FONT_FILE to its path.
+  const overlayFontFile = env('NEXT_PRIVATE_SIGNING_FONT_FILE');
+
+  const candidateFontFile = overlayFontFile
+    ? path.isAbsolute(overlayFontFile)
+      ? overlayFontFile
+      : path.join(process.cwd(), 'public/fonts', overlayFontFile)
+    : '';
+
+  const fontNoto: ArrayBuffer = candidateFontFile && fs.existsSync(candidateFontFile)
+    ? fs.readFileSync(candidateFontFile).buffer
+    : await fetch(`${NEXT_PRIVATE_INTERNAL_WEBAPP_URL()}/fonts/noto-sans.ttf`).then(async (res) =>
+        res.arrayBuffer(),
+      );
 
   const isSignatureField = isSignatureFieldType(field.type);
   const isDebugMode =
