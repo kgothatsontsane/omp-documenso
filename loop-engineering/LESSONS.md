@@ -176,3 +176,14 @@
 - WAF API quirks: rules.insert publishes instantly; rules.remove needs the
   rule id (valueless shape works); draft→active publishing of records inserted
   client-side (CLI) needs the dashboard "Apply changes" click.
+
+## 16. Streaming PDF proxy (R2 direct-serving without CORS)
+- Same-origin PDF routes keep PDF.js working (no CORS), but the original path
+  buffered the entire R2 document into the function before responding.
+- Fix: `handleEnvelopeItemPdfRequest` presigns locally (no network cost) and
+  pipes `fetch(presignedUrl).body` (a Web ReadableStream) straight into
+  `new Response(stream)` — transfer halves and RAM spikes disappear. hono
+  accepts a raw Response as handler return.
+- Note: an R2 *admin* token can set the bucket CORS config via the S3 API
+  (PutBucketCors, hand-built XML: the SDK marshal mismatches R2's schema);
+  with CORS set, a 302 to the presigned URL makes first loads function-free.
