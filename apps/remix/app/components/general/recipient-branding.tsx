@@ -1,7 +1,7 @@
 import type { TCssVarsSchema } from '@documenso/lib/types/css-vars';
 import { useEffect } from 'react';
 
-import { toNativeCssVarsString } from '~/utils/css-vars';
+import { toNativeCssVars } from '~/utils/css-vars';
 
 export type RecipientBrandingPayload = {
   allowCustomBranding: boolean;
@@ -47,23 +47,87 @@ export type RecipientBrandingProps = {
  * `document.head` and removing it on cleanup guarantees the active branding
  * matches the current route on both initial load and subsequent navigations.
  */
+/**
+ * Surface/text-family variables. Brand palettes are authored against the
+ * LIGHT theme; in dark mode they must NOT override the theme's own dark
+ * background/text colors — otherwise text renders near-black on a near-black
+ * background (unreadable). These are scoped to `html:not(.dark)` so dark mode
+ * falls back to the theme palette.
+ */
+const THEME_SCOPED_COLOR_KEYS = new Set([
+  'background',
+  'foreground',
+  'muted',
+  'mutedForeground',
+  'popover',
+  'popoverForeground',
+  'card',
+  'cardBorder',
+  'cardBorderTint',
+  'cardForeground',
+  'fieldCard',
+  'fieldCardBorder',
+  'fieldCardForeground',
+  'widget',
+  'widgetForeground',
+  'border',
+  'input',
+  // Action/button pairs too: a foreground color must always contrast with its
+  // theme background, and palettes authored for light break when paired with
+  // the dark theme's own foreground (e.g. black text on a black button).
+  'primary',
+  'primaryForeground',
+  'secondary',
+  'secondaryForeground',
+  'accent',
+  'accentForeground',
+  'destructive',
+  'destructiveForeground',
+  'ring',
+  'envelopeEditorBackground',
+]);
+
 export const RecipientBranding = ({ branding, cspNonce }: RecipientBrandingProps) => {
-  const varsString = toNativeCssVarsString(branding?.colors ?? {});
+  const varsMap = toNativeCssVars(branding?.colors ?? {});
+
+  const themeScopedEntries: string[] = [];
+  const alwaysEntries: string[] = [];
+
+  for (const [key, value] of Object.entries(varsMap)) {
+    // `--radius` is geometry, not color — apply in both themes.
+    if (key === '--radius') {
+      alwaysEntries.push(`${key}: ${value};`);
+      continue;
+    }
+
+    const semanticKey = key.replace(/^--/, '');
+
+    if (THEME_SCOPED_COLOR_KEYS.has(semanticKey)) {
+      themeScopedEntries.push(`${key}: ${value};`);
+    } else {
+      alwaysEntries.push(`${key}: ${value};`);
+    }
+  }
+
+  // Accent/action colors + geometry apply in both themes.
+  const alwaysBlock = alwaysEntries.length > 0 ? `.documenso-branded { ${alwaysEntries.join(' ')} }` : '';
+  // Surface/text colors follow the light theme only.
+  const lightBlock =
+    themeScopedEntries.length > 0 ? `html:not(.dark) .documenso-branded { ${themeScopedEntries.join(' ')} }` : '';
 
   const userCss = branding?.css ?? '';
-
-  const hasVars = varsString.trim().length > 0;
   const hasUserCss = userCss.trim().length > 0;
 
-  const innerBody = `${hasVars ? `${varsString}\n` : ''}${hasUserCss ? userCss : ''}`.trim();
-  const css = `.documenso-branded { ${innerBody} }`;
+  const css = `${alwaysBlock}\n${lightBlock}\n${hasUserCss ? `.documenso-branded { ${userCss} }` : ''}`.trim();
+
+  const hasCss = css.length > 0;
 
   useEffect(() => {
     if (!branding?.allowCustomBranding) {
       return;
     }
 
-    if (!hasVars && !hasUserCss) {
+    if (!hasCss) {
       return;
     }
 
@@ -76,13 +140,13 @@ export const RecipientBranding = ({ branding, cspNonce }: RecipientBrandingProps
     return () => {
       document.head.removeChild(style);
     };
-  }, [branding, cspNonce, css, hasUserCss, hasVars]);
+  }, [branding, cspNonce, css, hasCss]);
 
   if (!branding?.allowCustomBranding) {
     return null;
   }
 
-  if (!hasVars && !hasUserCss) {
+  if (!hasCss) {
     return null;
   }
 
