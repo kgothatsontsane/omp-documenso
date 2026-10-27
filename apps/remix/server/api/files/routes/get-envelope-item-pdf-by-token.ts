@@ -72,7 +72,11 @@ route.get(
       c,
       envelopeItem,
       version,
-      cacheStrategy: 'private',
+      // Token URLs are capability-scoped and stable per document version — the
+      // signing flow is the highest-traffic consumer, so serve these from the
+      // Vercel edge (public CDN cache) instead of re-streaming the bytes
+      // through the function on every load.
+      cacheStrategy: 'public',
     });
   },
 );

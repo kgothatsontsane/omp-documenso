@@ -3,10 +3,9 @@ import { verifyEmbeddingPresignToken } from '@documenso/lib/server-only/embeddin
 import type { DocumentDataVersion } from '@documenso/lib/types/document';
 import { sha256 } from '@documenso/lib/universal/crypto';
 import { getFileServerSide } from '@documenso/lib/universal/upload/get-file.server';
-import { getPresignGetUrl } from '@documenso/lib/universal/upload/server-actions';
 import { prisma } from '@documenso/prisma';
 import { sValidator } from '@hono/standard-validator';
-import { type DocumentData, DocumentDataType, type EnvelopeItem } from '@prisma/client';
+import type { DocumentData, EnvelopeItem } from '@prisma/client';
 import { type Context, Hono } from 'hono';
 import { z } from 'zod';
 
@@ -137,19 +136,13 @@ export const handleEnvelopeItemPdfRequest = async ({
     return c.status(304);
   }
 
-  // S3/R2-stored PDFs: redirect to a short-lived presigned URL instead of
-  // proxying the bytes through the function. The auth + presign costs ~100ms
-  // of function time; the document bytes then stream browser <-> R2 directly
-  // (R2 egress is free), which removes document views from function-duration
-  // billing entirely.
-  if (envelopeItem.documentData.type === DocumentDataType.S3_PATH) {
-    const { url } = await getPresignGetUrl(documentDataToUse);
-
-    // The redirect itself must not be cached — the signed URL rotates.
-    c.header('Cache-Control', 'private, max-age=0, must-revalidate');
-
-    return c.redirect(url);
-  }
+  // NOTE: redirecting S3_PATH documents to presigned R2 URLs does NOT work for
+  // the PDF viewer: PDF.js fetches cross-origin, which requires a CORS policy
+  // on the R2 bucket (none configured — the upload token lacks the CORS API
+  // permission). Once a bucket CORS policy exists in the Cloudflare dashboard
+  // (AllowedOrigins: app + Vercel previews, AllowedMethods GET/HEAD), a 302 to
+  // getPresignGetUrl(data) can replace the proxy below and remove document
+  // views from function-duration billing entirely.
 
   const file = await getFileServerSide({
     type: envelopeItem.documentData.type,
