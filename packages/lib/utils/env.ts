@@ -1,10 +1,26 @@
 /// <reference types="@documenso/tsconfig/process-env.d.ts" />
 
-import { AppError, AppErrorCode } from '../errors/app-error';
-
 declare global {
   interface Window {
     __ENV__?: Record<string, string | undefined>;
+  }
+}
+
+/**
+ * Duck-typed AppError. `AppError.parseError` reconstructs a proper AppError
+ * from any error carrying a string `code`, so this preserves the exact
+ * MISSING_ENV_VAR semantics without importing `errors/app-error` — keeping
+ * this module a true leaf that Node's native TS loader (used when loading
+ * vite.config.ts in the `typegen` step on Node >= 22.18) can resolve.
+ */
+const MISSING_ENV_VAR_CODE = 'MISSING_ENV_VAR';
+
+class MissingEnvVarError extends Error {
+  public readonly code = MISSING_ENV_VAR_CODE;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'AppError';
   }
 }
 
@@ -34,12 +50,7 @@ export const requireEnv = <K extends EnvKey>(variable: K, error?: Error): NonNul
   const value = env(variable);
 
   if (!value) {
-    throw (
-      error ??
-      new AppError(AppErrorCode.MISSING_ENV_VAR, {
-        message: `Required environment variable "${String(variable)}" is unset.`,
-      })
-    );
+    throw error ?? new MissingEnvVarError(`Required environment variable "${String(variable)}" is unset.`);
   }
 
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
