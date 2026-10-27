@@ -145,3 +145,18 @@
   timeout — a stalled upload POST left isSubmitting stuck and the fieldset
   permanently disabled; (b) array-root validation errors had no FormMessage —
   invalid file type/size silently no-opped the submit.
+
+## 14. PDF views through the function were the #2 duration cost — fix is a 302
+- Documents are stored in R2 (s3 transport), but /api/files PDF routes PRESIGNED
+  then downloaded the bytes INTO the function and re-served them — proxying an
+  entire document per view (seconds of duration each).
+- Fix: handleEnvelopeItemPdfRequest (apps/remix/server/api/files/routes/
+  get-envelope-item-pdf.ts) redirects (302) session/token PDF routes to the
+  presigned R2 URL (1h expiry). Function cost ≈ auth + presign (~100ms).
+  Requires CSP `connect-src` to include the R2 endpoint origin
+  (apps/remix/server/security-headers.ts) — PDF.js fetches follow the redirect.
+- LESSON: a parallel agent/session force-pushed staging and silently dropped
+  these commits; always `git log` a file before assuming a change is deployed.
+- Node >= 22.18 / 24 native TS loading breaks extensionless imports in
+  `vite.config.ts` chains (react-router typegen) — packages/lib/utils/env.ts is
+  now a leaf module (duck-typed AppError via parseError-compatible `code`).
