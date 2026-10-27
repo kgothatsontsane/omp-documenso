@@ -1,3 +1,4 @@
+import { env } from '@documenso/lib/utils/env';
 import { createMiddleware } from 'hono/factory';
 
 import type { HonoEnv } from './router';
@@ -69,6 +70,25 @@ const generateNonce = () => {
 
 type CspPathKind = 'embed' | 'frameable' | 'default';
 
+/**
+ * Origin of the S3-compatible (R2) endpoint when the s3 upload transport is
+ * configured. Document PDF routes redirect the browser to short-lived
+ * presigned URLs on this origin, so it must be connectable.
+ */
+const getS3UploadOrigin = (): string | null => {
+  try {
+    if (env('NEXT_PUBLIC_UPLOAD_TRANSPORT') !== 's3') {
+      return null;
+    }
+
+    const endpoint = env('NEXT_PRIVATE_UPLOAD_ENDPOINT');
+
+    return endpoint ? new URL(endpoint).origin : null;
+  } catch {
+    return null;
+  }
+};
+
 const buildCspHeader = ({ nonce, kind }: { nonce: string; kind: CspPathKind }) => {
   // `'self'` is included alongside `'strict-dynamic'` as a fallback for
   // browsers that don't understand `'strict-dynamic'`. Modern browsers
@@ -83,7 +103,9 @@ const buildCspHeader = ({ nonce, kind }: { nonce: string; kind: CspPathKind }) =
     // PostHog telemetry is self-hosted at `${webappUrl}/ingest`; API/tRPC and
     // document downloads are same-origin. External signing (TrustedSignatures)
     // happens server-side, so no browser connect-src is needed beyond self.
-    `connect-src 'self'`,
+    // Document PDFs served from object storage redirect the browser to
+    // presigned URLs on the storage origin, which must be connectable.
+    `connect-src 'self'${getS3UploadOrigin() ? ` ${getS3UploadOrigin()}` : ''}`,
     // Signatures are rendered as `data:` images; PDF.js uses `blob:` URLs and
     // user-uploaded avatars/logos may be remote `https:`.
     `img-src 'self' data: blob: https:`,

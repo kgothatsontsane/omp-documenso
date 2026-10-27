@@ -40,6 +40,7 @@ import { getTemplateUseErrorMessage } from '~/utils/toast-error-messages';
 
 const ZAddRecipientsForNewDocumentSchema = z.object({
   distributeDocument: z.boolean(),
+  title: z.string().max(255).optional(),
   useCustomDocument: z.boolean().default(false),
   customDocumentData: z
     .array(
@@ -115,6 +116,7 @@ export function TemplateUseDialog({
   const generateDefaultFormValues = () => {
     return {
       distributeDocument: false,
+      title: '',
       useCustomDocument: false,
       customDocumentData: envelopeItems.map((item) => ({
         title: item.title,
@@ -173,6 +175,7 @@ export function TemplateUseDialog({
         recipients: data.recipients,
         distributeDocument: data.distributeDocument,
         customDocumentData,
+        override: data.title ? { title: data.title } : undefined,
       });
 
       toast({
@@ -253,6 +256,28 @@ export function TemplateUseDialog({
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <fieldset className="flex h-full flex-col" disabled={form.formState.isSubmitting}>
               <div className="custom-scrollbar -m-1 max-h-[60vh] space-y-4 overflow-y-auto p-1">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        <Trans>Document name</Trans>
+                      </FormLabel>
+
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value ?? ''}
+                          placeholder={_(msg`Leave empty to use the template's name`)}
+                        />
+                      </FormControl>
+
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {formRecipients.map((recipient, index) => (
                   <div className="flex w-full flex-row space-x-4" key={recipient.id}>
                     {templateSigningOrder === DocumentSigningOrder.SEQUENTIAL && (

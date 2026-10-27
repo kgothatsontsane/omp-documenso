@@ -3,9 +3,10 @@ import { verifyEmbeddingPresignToken } from '@documenso/lib/server-only/embeddin
 import type { DocumentDataVersion } from '@documenso/lib/types/document';
 import { sha256 } from '@documenso/lib/universal/crypto';
 import { getFileServerSide } from '@documenso/lib/universal/upload/get-file.server';
+import { getPresignGetUrl } from '@documenso/lib/universal/upload/server-actions';
 import { prisma } from '@documenso/prisma';
 import { sValidator } from '@hono/standard-validator';
-import type { DocumentData, EnvelopeItem } from '@prisma/client';
+import { type DocumentData, DocumentDataType, type EnvelopeItem } from '@prisma/client';
 import { type Context, Hono } from 'hono';
 import { z } from 'zod';
 
@@ -126,10 +127,28 @@ export const handleEnvelopeItemPdfRequest = async ({
   const documentDataToUse =
     version === 'current' ? envelopeItem.documentData.data : envelopeItem.documentData.initialData;
 
+  if (!documentDataToUse) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+
   const etag = Buffer.from(sha256(documentDataToUse)).toString('hex');
 
   if (c.req.header('If-None-Match') === etag) {
     return c.status(304);
+  }
+
+  // S3/R2-stored PDFs: redirect to a short-lived presigned URL instead of
+  // proxying the bytes through the function. The auth + presign costs ~100ms
+  // of function time; the document bytes then stream browser <-> R2 directly
+  // (R2 egress is free), which removes document views from function-duration
+  // billing entirely.
+  if (envelopeItem.documentData.type === DocumentDataType.S3_PATH) {
+    const { url } = await getPresignGetUrl(documentDataToUse);
+
+    // The redirect itself must not be cached — the signed URL rotates.
+    c.header('Cache-Control', 'private, max-age=0, must-revalidate');
+
+    return c.redirect(url);
   }
 
   const file = await getFileServerSide({
