@@ -3,9 +3,10 @@ import { verifyEmbeddingPresignToken } from '@documenso/lib/server-only/embeddin
 import type { DocumentDataVersion } from '@documenso/lib/types/document';
 import { sha256 } from '@documenso/lib/universal/crypto';
 import { getFileServerSide } from '@documenso/lib/universal/upload/get-file.server';
+import { getPresignGetUrl } from '@documenso/lib/universal/upload/server-actions';
 import { prisma } from '@documenso/prisma';
 import { sValidator } from '@hono/standard-validator';
-import type { DocumentData, EnvelopeItem } from '@prisma/client';
+import { type DocumentData, DocumentDataType, type EnvelopeItem } from '@prisma/client';
 import { type Context, Hono } from 'hono';
 import { z } from 'zod';
 
@@ -139,10 +140,37 @@ export const handleEnvelopeItemPdfRequest = async ({
   // NOTE: redirecting S3_PATH documents to presigned R2 URLs does NOT work for
   // the PDF viewer: PDF.js fetches cross-origin, which requires a CORS policy
   // on the R2 bucket (none configured — the upload token lacks the CORS API
-  // permission). Once a bucket CORS policy exists in the Cloudflare dashboard
-  // (AllowedOrigins: app + Vercel previews, AllowedMethods GET/HEAD), a 302 to
-  // getPresignGetUrl(data) can replace the proxy below and remove document
-  // views from function-duration billing entirely.
+  // permission). Instead we stream R2 -> function -> browser in parallel
+  // (same-origin, no CORS involved): the function no longer downloads the
+  // whole document into memory before responding, halving transfer time and
+  // removing the RAM spikes on large documents.
+
+  // S3/R2 path: presign locally (no network) and pipe the R2 body through —
+  // the function streams instead of buffering the whole document.
+  if (envelopeItem.documentData.type === DocumentDataType.S3_PATH) {
+    try {
+      const { url } = await getPresignGetUrl(documentDataToUse);
+
+      const upstream = await fetch(url);
+
+      if (!upstream.ok || !upstream.body) {
+        return c.json({ error: 'Not found' }, 404);
+      }
+
+      return new Response(upstream.body, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          ETag: etag,
+          'Cache-Control': `${cacheStrategy}, max-age=31536000, immutable`,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+
+      return c.json({ error: 'Not found' }, 404);
+    }
+  }
 
   const file = await getFileServerSide({
     type: envelopeItem.documentData.type,
