@@ -160,3 +160,19 @@
 - Node >= 22.18 / 24 native TS loading breaks extensionless imports in
   `vite.config.ts` chains (react-router typegen) — packages/lib/utils/env.ts is
   now a leaf module (duck-typed AppError via parseError-compatible `code`).
+
+## 15. Dark mode on recipient routes: brand palettes are light-authored
+- Org branding colors are authored against the light theme. When a signer's
+  phone is in dark mode, remix-themes sets html.dark, but the branding
+  `<style>` block re-declared the LIGHT surface/text vars
+  (.documenso-branded) — descending from html they WON the cascade, producing
+  black-on-black text ("Sign Document", "Next Field") throughout the mobile
+  signing shell and the pdf-viewer page labels.
+- Fix: recipient-branding.tsx scopes surface/text/action-pair variables to
+  `html:not(.dark)`; only geometry (--radius) applies in both. Dark mode falls
+  back to the theme's own readable palette; light keeps the org palette.
+- Verify mobile dark mode by emulating `colorScheme: 'dark'` + walking text
+  elements' effective bg/fg contrast (mobile-dark2 script pattern).
+- WAF API quirks: rules.insert publishes instantly; rules.remove needs the
+  rule id (valueless shape works); draft→active publishing of records inserted
+  client-side (CLI) needs the dashboard "Apply changes" click.
