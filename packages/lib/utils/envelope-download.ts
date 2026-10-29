@@ -55,6 +55,12 @@ export type DocumentDataUrlOptions = {
  *
  * Since `documentDataId` should change when the document is changed/signed, this is a
  * good way to cache an envelope item by.
+ *
+ * Note: The URL is deliberately relative (same-origin) so viewer fetches
+ * resolve against whichever origin is serving the app — the production
+ * domain, a preview deployment or local dev. `NEXT_PUBLIC_WEBAPP_URL` is not
+ * set on preview deployments and would otherwise fall back to localhost,
+ * which the CSP blocks (and the fetch would target the wrong host).
  */
 export const getDocumentDataUrl = (options: DocumentDataUrlOptions) => {
   const { envelopeId, envelopeItemId, documentDataId, token, presignToken, version } = options;
@@ -63,11 +69,11 @@ export const getDocumentDataUrl = (options: DocumentDataUrlOptions) => {
 
   // Recipient token endpoint.
   if (token) {
-    return `${NEXT_PUBLIC_WEBAPP_URL()}/api/files/token/${token}/${partialUrl}`;
+    return `/api/files/token/${token}/${partialUrl}`;
   }
 
   // Endpoint authenticated by session or presigned token.
-  const baseUrl = `${NEXT_PUBLIC_WEBAPP_URL()}/api/files/${partialUrl}`;
+  const baseUrl = `/api/files/${partialUrl}`;
 
   if (presignToken) {
     return `${baseUrl}?presignToken=${presignToken}`;
@@ -80,31 +86,13 @@ export const getDocumentDataUrl = (options: DocumentDataUrlOptions) => {
  * Gets a PDF url for the PDF viewer.
  *
  * Returns `null` if invalid.
- *
- * Note: The URL is deliberately relative (same-origin) so the viewer fetch
- * resolves against whichever origin is serving the app — the production
- * domain, a preview deployment or local dev. `NEXT_PUBLIC_WEBAPP_URL` is not
- * set on preview deployments and would otherwise fall back to localhost,
- * which the CSP blocks (and the fetch would target the wrong host).
  */
 export const getDocumentDataUrlForPdfViewer = (options: DocumentDataUrlOptions): string | null => {
-  const { envelopeId, envelopeItemId, documentDataId, token, presignToken, version } = options;
+  const { envelopeId, envelopeItemId, documentDataId } = options;
 
   if (!envelopeId || !envelopeItemId || !documentDataId) {
     return null;
   }
 
-  const partialUrl = `envelope/${envelopeId}/envelopeItem/${envelopeItemId}/dataId/${documentDataId}/${version}/item.pdf`;
-
-  if (token) {
-    return `/api/files/token/${token}/${partialUrl}`;
-  }
-
-  const baseUrl = `/api/files/${partialUrl}`;
-
-  if (presignToken) {
-    return `${baseUrl}?presignToken=${presignToken}`;
-  }
-
-  return baseUrl;
+  return getDocumentDataUrl(options);
 };
