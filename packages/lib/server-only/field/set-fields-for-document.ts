@@ -17,8 +17,8 @@ import {
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 import { createDocumentAuditLogData, diffFieldChanges } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
-import { EnvelopeType, type Field, FieldType } from '@prisma/client';
-import { isDeepEqual } from 'remeda';
+import { EnvelopeType, type Field, FieldType, type Prisma } from '@prisma/client';
+import { isDeepEqual, omit } from 'remeda';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
@@ -125,77 +125,92 @@ export const setFieldsForDocument = async ({
     };
   });
 
-  const persistedFields = await prisma.$transaction(async (tx) => {
-    return await Promise.all(
-      linkedFields.map(async (field) => {
+  // Validate all field metadata up-front. No writes happen if any field is invalid.
+  const validatedFields = linkedFields.map((field) => {
+    const parsedFieldMeta = field.fieldMeta
+      ? ZFieldMetaSchema.parse(field.fieldMeta)
+      : FIELD_META_DEFAULT_VALUES[field.type];
+
+    if (field.type === FieldType.TEXT && field.fieldMeta) {
+      const textFieldParsedMeta = ZTextFieldMeta.parse(field.fieldMeta);
+      const errors = validateTextField(textFieldParsedMeta.text || '', textFieldParsedMeta);
+
+      if (errors.length > 0) {
+        throw new Error(errors.join(', '));
+      }
+    }
+
+    if (field.type === FieldType.NUMBER && field.fieldMeta) {
+      const numberFieldParsedMeta = ZNumberFieldMeta.parse(field.fieldMeta);
+      const errors = validateNumberField(String(numberFieldParsedMeta.value || ''), numberFieldParsedMeta, false);
+
+      if (errors.length > 0) {
+        throw new Error(errors.join(', '));
+      }
+    }
+
+    if (field.type === FieldType.CHECKBOX) {
+      if (field.fieldMeta) {
+        const checkboxFieldParsedMeta = ZCheckboxFieldMeta.parse(field.fieldMeta);
+        const errors = validateCheckboxField(
+          checkboxFieldParsedMeta?.values?.map((item) => item.value) ?? [],
+          checkboxFieldParsedMeta,
+        );
+
+        if (errors.length > 0) {
+          throw new Error(errors.join(', '));
+        }
+      } else {
+        throw new Error('To proceed further, please set at least one value for the Checkbox field');
+      }
+    }
+
+    if (field.type === FieldType.RADIO) {
+      if (field.fieldMeta) {
+        const radioFieldParsedMeta = ZRadioFieldMeta.parse(field.fieldMeta);
+        const checkedRadioFieldValue = radioFieldParsedMeta.values?.find((option) => option.checked)?.value;
+
+        const errors = validateRadioField(checkedRadioFieldValue, radioFieldParsedMeta);
+
+        if (errors.length > 0) {
+          throw new Error(errors.join('. '));
+        }
+      } else {
+        throw new Error('To proceed further, please set at least one value for the Radio field');
+      }
+    }
+
+    if (field.type === FieldType.DROPDOWN) {
+      if (field.fieldMeta) {
+        const dropdownFieldParsedMeta = ZDropdownFieldMeta.parse(field.fieldMeta);
+        const errors = validateDropdownField(undefined, dropdownFieldParsedMeta);
+
+        if (errors.length > 0) {
+          throw new Error(errors.join('. '));
+        }
+      } else {
+        throw new Error('To proceed further, please set at least one value for the Dropdown field');
+      }
+    }
+
+    return { field, parsedFieldMeta };
+  });
+
+  // Only new or actually-changed fields need writing. Without this, every
+  // autosave re-upserts every field on the document — each a sequential
+  // round trip to the database — and documents with many fields blow past
+  // the interactive transaction timeout (Prisma P2028) mid-save.
+  const fieldsToWrite = validatedFields.filter(
+    ({ field }) => !field._persisted || hasFieldBeenChanged(field._persisted, field),
+  );
+
+  const persistedFields = await prisma.$transaction(
+    async (tx) => {
+      const upsertedFields: (Field & { formId?: string })[] = [];
+      const auditLogsToCreate: Prisma.DocumentAuditLogCreateManyInput[] = [];
+
+      for (const { field, parsedFieldMeta } of fieldsToWrite) {
         const fieldSignerEmail = field._recipient.email.toLowerCase();
-
-        const parsedFieldMeta = field.fieldMeta
-          ? ZFieldMetaSchema.parse(field.fieldMeta)
-          : FIELD_META_DEFAULT_VALUES[field.type];
-
-        if (field.type === FieldType.TEXT && field.fieldMeta) {
-          const textFieldParsedMeta = ZTextFieldMeta.parse(field.fieldMeta);
-          const errors = validateTextField(textFieldParsedMeta.text || '', textFieldParsedMeta);
-
-          if (errors.length > 0) {
-            throw new Error(errors.join(', '));
-          }
-        }
-
-        if (field.type === FieldType.NUMBER && field.fieldMeta) {
-          const numberFieldParsedMeta = ZNumberFieldMeta.parse(field.fieldMeta);
-
-          const errors = validateNumberField(String(numberFieldParsedMeta.value || ''), numberFieldParsedMeta, false);
-
-          if (errors.length > 0) {
-            throw new Error(errors.join(', '));
-          }
-        }
-
-        if (field.type === FieldType.CHECKBOX) {
-          if (field.fieldMeta) {
-            const checkboxFieldParsedMeta = ZCheckboxFieldMeta.parse(field.fieldMeta);
-            const errors = validateCheckboxField(
-              checkboxFieldParsedMeta?.values?.map((item) => item.value) ?? [],
-              checkboxFieldParsedMeta,
-            );
-
-            if (errors.length > 0) {
-              throw new Error(errors.join(', '));
-            }
-          } else {
-            throw new Error('To proceed further, please set at least one value for the Checkbox field');
-          }
-        }
-
-        if (field.type === FieldType.RADIO) {
-          if (field.fieldMeta) {
-            const radioFieldParsedMeta = ZRadioFieldMeta.parse(field.fieldMeta);
-            const checkedRadioFieldValue = radioFieldParsedMeta.values?.find((option) => option.checked)?.value;
-
-            const errors = validateRadioField(checkedRadioFieldValue, radioFieldParsedMeta);
-
-            if (errors.length > 0) {
-              throw new Error(errors.join('. '));
-            }
-          } else {
-            throw new Error('To proceed further, please set at least one value for the Radio field');
-          }
-        }
-
-        if (field.type === FieldType.DROPDOWN) {
-          if (field.fieldMeta) {
-            const dropdownFieldParsedMeta = ZDropdownFieldMeta.parse(field.fieldMeta);
-            const errors = validateDropdownField(undefined, dropdownFieldParsedMeta);
-
-            if (errors.length > 0) {
-              throw new Error(errors.join('. '));
-            }
-          } else {
-            throw new Error('To proceed further, please set at least one value for the Dropdown field');
-          }
-        }
 
         const upsertedField = await tx.field.upsert({
           where: {
@@ -256,8 +271,8 @@ export const setFieldsForDocument = async ({
 
         // Handle field updated audit log.
         if (field._persisted && changes.length > 0) {
-          await tx.documentAuditLog.create({
-            data: createDocumentAuditLogData({
+          auditLogsToCreate.push(
+            createDocumentAuditLogData({
               type: DOCUMENT_AUDIT_LOG_TYPE.FIELD_UPDATED,
               envelopeId: envelope.id,
               metadata: requestMetadata,
@@ -266,13 +281,13 @@ export const setFieldsForDocument = async ({
                 ...baseAuditLog,
               },
             }),
-          });
+          );
         }
 
         // Handle field created audit log.
         if (!field._persisted) {
-          await tx.documentAuditLog.create({
-            data: createDocumentAuditLogData({
+          auditLogsToCreate.push(
+            createDocumentAuditLogData({
               type: DOCUMENT_AUDIT_LOG_TYPE.FIELD_CREATED,
               envelopeId: envelope.id,
               metadata: requestMetadata,
@@ -280,43 +295,65 @@ export const setFieldsForDocument = async ({
                 ...baseAuditLog,
               },
             }),
-          });
+          );
         }
 
-        return {
-          ...upsertedField,
-          formId: field.formId,
-        };
-      }),
-    );
-  });
+        upsertedFields.push({ ...upsertedField, formId: field.formId });
+      }
+
+      // One round trip for all audit log entries instead of one per field.
+      if (auditLogsToCreate.length > 0) {
+        await tx.documentAuditLog.createMany({
+          data: auditLogsToCreate,
+        });
+      }
+
+      // Unchanged fields: reuse the existing rows as the persisted result —
+      // the upsert would have written identical values anyway.
+      const unchangedFields: (Field & { formId?: string })[] = [];
+
+      for (const { field } of validatedFields) {
+        if (field._persisted && !fieldsToWrite.some(({ field: f }) => f === field)) {
+          unchangedFields.push({ ...omit(field._persisted, ['recipient']), formId: field.formId });
+        }
+      }
+
+      return [...unchangedFields, ...upsertedFields];
+    },
+    // Large documents (35+ fields) with sequential round trips need more than
+    // the 10s default before the interactive transaction expires (P2028).
+    { timeout: 30_000, maxWait: 15_000 },
+  );
 
   if (removedFields.length > 0) {
-    await prisma.$transaction(async (tx) => {
-      await tx.field.deleteMany({
-        where: {
-          id: {
-            in: removedFields.map((field) => field.id),
-          },
-        },
-      });
-
-      await tx.documentAuditLog.createMany({
-        data: removedFields.map((field) =>
-          createDocumentAuditLogData({
-            type: DOCUMENT_AUDIT_LOG_TYPE.FIELD_DELETED,
-            envelopeId: envelope.id,
-            metadata: requestMetadata,
-            data: {
-              fieldId: field.secondaryId,
-              fieldRecipientEmail: field.recipient?.email ?? '',
-              fieldRecipientId: field.recipientId ?? -1,
-              fieldType: field.type,
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.field.deleteMany({
+          where: {
+            id: {
+              in: removedFields.map((field) => field.id),
             },
-          }),
-        ),
-      });
-    });
+          },
+        });
+
+        await tx.documentAuditLog.createMany({
+          data: removedFields.map((field) =>
+            createDocumentAuditLogData({
+              type: DOCUMENT_AUDIT_LOG_TYPE.FIELD_DELETED,
+              envelopeId: envelope.id,
+              metadata: requestMetadata,
+              data: {
+                fieldId: field.secondaryId,
+                fieldRecipientEmail: field.recipient?.email ?? '',
+                fieldRecipientId: field.recipientId ?? -1,
+                fieldType: field.type,
+              },
+            }),
+          ),
+        });
+      },
+      { timeout: 30_000, maxWait: 15_000 },
+    );
   }
 
   // Filter out fields that have been removed or have been updated.

@@ -16,6 +16,7 @@ import {
 import { prisma } from '@documenso/prisma';
 import type { Field } from '@prisma/client';
 import { EnvelopeType, FieldType } from '@prisma/client';
+import { isDeepEqual, omit } from 'remeda';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
@@ -168,6 +169,13 @@ export const setFieldsForTemplate = async ({ userId, teamId, id, fields }: SetFi
     return { field, parsedFieldMeta };
   });
 
+  // Only new or actually-changed fields need writing. Without this, every
+  // autosave re-upserts every field on the template — each a sequential
+  // round trip — and large templates can exceed the transaction timeout.
+  const fieldsToWrite = validatedFields.filter(
+    ({ field }) => !field._persisted || hasFieldBeenChanged(field._persisted, field),
+  );
+
   // All writes go through one transaction — a single pooled connection and an
   // atomic save. Without this, each field's upsert grabs its own connection and
   // a large batch exhausts the pool ("Timed out fetching a new connection").
@@ -175,7 +183,7 @@ export const setFieldsForTemplate = async ({ userId, teamId, id, fields }: SetFi
     async (tx) => {
       const upsertedFields: (Field & { formId?: string })[] = [];
 
-      for (const { field, parsedFieldMeta } of validatedFields) {
+      for (const { field, parsedFieldMeta } of fieldsToWrite) {
         const upsertedField = await tx.field.upsert({
           where: {
             id: field._persisted?.id ?? -1,
@@ -233,7 +241,17 @@ export const setFieldsForTemplate = async ({ userId, teamId, id, fields }: SetFi
         });
       }
 
-      return upsertedFields;
+      // Unchanged fields: reuse the existing rows as the persisted result —
+      // the upsert would have written identical values anyway.
+      const unchangedFields: (Field & { formId?: string })[] = [];
+
+      for (const { field } of validatedFields) {
+        if (field._persisted && !fieldsToWrite.some(({ field: f }) => f === field)) {
+          unchangedFields.push({ ...omit(field._persisted, ['recipient']), formId: field.formId });
+        }
+      }
+
+      return [...unchangedFields, ...upsertedFields];
     },
     { timeout: 30_000, maxWait: 15_000 },
   );
@@ -259,4 +277,23 @@ export const setFieldsForTemplate = async ({ userId, teamId, id, fields }: SetFi
   return {
     fields: [...mappedFilteredFields, ...mappedPersistentFields],
   };
+};
+
+/**
+ * Whether the incoming field data would actually change the persisted field.
+ * Mirrors the check in set-fields-for-document (update writes only these
+ * columns, so an unchanged field can be skipped entirely).
+ */
+const hasFieldBeenChanged = (field: Field, newFieldData: SetFieldsForTemplateOptions['fields'][number]) => {
+  const currentFieldMeta = field.fieldMeta || null;
+  const newFieldMeta = newFieldData.fieldMeta || null;
+
+  return (
+    field.page !== newFieldData.pageNumber ||
+    field.positionX.toNumber() !== newFieldData.pageX ||
+    field.positionY.toNumber() !== newFieldData.pageY ||
+    field.width.toNumber() !== newFieldData.pageWidth ||
+    field.height.toNumber() !== newFieldData.pageHeight ||
+    !isDeepEqual(currentFieldMeta, newFieldMeta)
+  );
 };
