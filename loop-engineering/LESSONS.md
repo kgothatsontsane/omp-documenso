@@ -187,3 +187,17 @@
 - Note: an R2 *admin* token can set the bucket CORS config via the S3 API
   (PutBucketCors, hand-built XML: the SDK marshal mismatches R2's schema);
   with CORS set, a 302 to the presigned URL makes first loads function-free.
+
+## 17. Autosave P2028: don't re-write unchanged rows inside one transaction
+- `setFieldsForDocument` re-upserted EVERY field on every autosave. Each
+  upsert is a sequential round trip on the transaction's single connection;
+  at ~35 fields the WAN latency total exceeded Prisma's default 10s
+  interactive-transaction timeout -> P2028 "Transaction already closed" ->
+  editor toast "Save failed / One or more autosaves failed".
+- Fix (both document + template variants): validate up-front OUTSIDE the tx,
+  filter to fields that are new or actually changed (`hasFieldBeenChanged`),
+  upsert only those, batch audit-log creates into one `createMany`, return
+  unchanged rows from the already-fetched data, and raise the tx timeout to
+  30s. Steady-state autosaves (no edits) now do ZERO writes.
+- Remeda `omit(persisted, ['recipient'])` strips the include relation before
+  returning rows as plain `Field`s (object-literal excess property check).
