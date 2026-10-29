@@ -57,6 +57,14 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
   const interactiveTransformer = useRef<Transformer | null>(null);
 
+  /**
+   * Latest-ref for the editor fields API so the window keydown listener (bound
+   * once per selection change) always reads fresh field data while arrow-key
+   * nudging repeats, instead of the values captured when the selection was made.
+   */
+  const editorFieldsRef = useRef(editorFields);
+  editorFieldsRef.current = editorFields;
+
   const [selectedKonvaFieldGroups, setSelectedKonvaFieldGroups] = useState<Konva.Group[]>([]);
 
   const [isFieldChanging, setIsFieldChanging] = useState(false);
@@ -689,6 +697,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
    * Selection-scoped keyboard shortcuts:
    * - ⌘C / Ctrl+C copies the current Konva selection into the editor clipboard.
    * - Delete / Backspace removes the selected fields.
+   * - Arrow keys nudge the selected fields by 1px (Shift: 10px), Figma-style.
    * Only the page instance holding the selection reacts; other pages no-op.
    */
   useEffect(() => {
@@ -709,14 +718,45 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
         event.preventDefault();
 
         const fields = selectedKonvaFieldGroups
-          .map((field) => editorFields.getFieldByFormId(field.id()))
+          .map((field) => editorFieldsRef.current.getFieldByFormId(field.id()))
           .filter((field) => field !== undefined);
 
-        editorFields.copyFields(fields);
+        editorFieldsRef.current.copyFields(fields);
       } else if (key === 'delete' || key === 'backspace') {
         event.preventDefault();
 
         deletedSelectedFields();
+      } else if (
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        (key === 'arrowleft' || key === 'arrowright' || key === 'arrowup' || key === 'arrowdown')
+      ) {
+        event.preventDefault();
+
+        // Pixel-consistent nudge: 1px per press, 10px with Shift, converted to
+        // a percentage of the page (positions are stored as percentages).
+        const nudgePixels = event.shiftKey ? 10 : 1;
+        const stepX = (nudgePixels / unscaledViewport.width) * 100;
+        const stepY = (nudgePixels / unscaledViewport.height) * 100;
+
+        const deltaX = key === 'arrowleft' ? -stepX : key === 'arrowright' ? stepX : 0;
+        const deltaY = key === 'arrowup' ? -stepY : key === 'arrowdown' ? stepY : 0;
+
+        const editor = editorFieldsRef.current;
+
+        for (const fieldGroup of selectedKonvaFieldGroups) {
+          const field = editor.getFieldByFormId(fieldGroup.id());
+
+          if (!field) {
+            continue;
+          }
+
+          editor.updateFieldByFormId(field.formId, {
+            positionX: field.positionX + deltaX,
+            positionY: field.positionY + deltaY,
+          });
+        }
       }
     };
 
