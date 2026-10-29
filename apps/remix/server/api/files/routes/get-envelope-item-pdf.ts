@@ -137,34 +137,24 @@ export const handleEnvelopeItemPdfRequest = async ({
     return c.status(304);
   }
 
-  // NOTE: redirecting S3_PATH documents to presigned R2 URLs does NOT work for
-  // the PDF viewer: PDF.js fetches cross-origin, which requires a CORS policy
-  // on the R2 bucket (none configured — the upload token lacks the CORS API
-  // permission). Instead we stream R2 -> function -> browser in parallel
-  // (same-origin, no CORS involved): the function no longer downloads the
-  // whole document into memory before responding, halving transfer time and
-  // removing the RAM spikes on large documents.
+  // NOTE: S3_PATH documents redirect to presigned R2 URLs so the browser
+  // fetches the bytes directly from R2 — the function only presigns (a local
+  // HMAC, zero byte transfer), making document views near-zero function
+  // duration. This works because the R2 bucket has a CORS policy allowing
+  // the app origins (PDF.js fetches cross-origin, which CORS gates).
+  //
+  // Presigned URLs expire after 1 hour, so the redirect cache lifetime must
+  // stay safely below that (50 minutes) — never cache a redirect with a
+  // Location that expires sooner than the cache entry.
 
-  // S3/R2 path: presign locally (no network) and pipe the R2 body through —
-  // the function streams instead of buffering the whole document.
+  // S3/R2 path: presign locally (no network) and redirect the browser to R2.
   if (envelopeItem.documentData.type === DocumentDataType.S3_PATH) {
     try {
       const { url } = await getPresignGetUrl(documentDataToUse);
 
-      const upstream = await fetch(url);
+      c.header('Cache-Control', `${cacheStrategy}, max-age=3000`);
 
-      if (!upstream.ok || !upstream.body) {
-        return c.json({ error: 'Not found' }, 404);
-      }
-
-      return new Response(upstream.body, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/pdf',
-          ETag: etag,
-          'Cache-Control': `${cacheStrategy}, max-age=31536000, immutable`,
-        },
-      });
+      return c.redirect(url);
     } catch (error) {
       console.error(error);
 

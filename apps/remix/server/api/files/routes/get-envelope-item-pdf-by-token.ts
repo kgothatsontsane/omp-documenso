@@ -73,9 +73,10 @@ route.get(
       envelopeItem,
       version,
       // Token URLs are capability-scoped and stable per document version — the
-      // signing flow is the highest-traffic consumer, so serve these from the
-      // Vercel edge (public CDN cache) instead of re-streaming the bytes
-      // through the function on every load.
+      // signing flow is the highest-traffic consumer. The handler redirects to
+      // a presigned R2 URL (browser fetches bytes directly), and this public
+      // cache strategy lets the Vercel edge cache that redirect so repeat
+      // views don't even reach the function.
       cacheStrategy: 'public',
     });
   },
