@@ -80,13 +80,31 @@ export const getDocumentDataUrl = (options: DocumentDataUrlOptions) => {
  * Gets a PDF url for the PDF viewer.
  *
  * Returns `null` if invalid.
+ *
+ * Note: The URL is deliberately relative (same-origin) so the viewer fetch
+ * resolves against whichever origin is serving the app — the production
+ * domain, a preview deployment or local dev. `NEXT_PUBLIC_WEBAPP_URL` is not
+ * set on preview deployments and would otherwise fall back to localhost,
+ * which the CSP blocks (and the fetch would target the wrong host).
  */
 export const getDocumentDataUrlForPdfViewer = (options: DocumentDataUrlOptions): string | null => {
-  const { envelopeId, envelopeItemId, documentDataId } = options;
+  const { envelopeId, envelopeItemId, documentDataId, token, presignToken, version } = options;
 
   if (!envelopeId || !envelopeItemId || !documentDataId) {
     return null;
   }
 
-  return getDocumentDataUrl(options);
+  const partialUrl = `envelope/${envelopeId}/envelopeItem/${envelopeItemId}/dataId/${documentDataId}/${version}/item.pdf`;
+
+  if (token) {
+    return `/api/files/token/${token}/${partialUrl}`;
+  }
+
+  const baseUrl = `/api/files/${partialUrl}`;
+
+  if (presignToken) {
+    return `${baseUrl}?presignToken=${presignToken}`;
+  }
+
+  return baseUrl;
 };
