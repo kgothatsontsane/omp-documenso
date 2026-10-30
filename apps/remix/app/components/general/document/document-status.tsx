@@ -4,7 +4,7 @@ import { cn } from '@documenso/ui/lib/utils';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { CheckCircle2, Clock, File, TimerOff, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, File, TimerOff, Trash2, XCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react/dist/lucide-react';
 import type { HTMLAttributes } from 'react';
 
@@ -56,6 +56,12 @@ export const FRIENDLY_STATUS_MAP: Record<ExtendedDocumentStatus, FriendlyStatus>
     label: msg`Inbox`,
     labelExtended: msg`Document inbox`,
     icon: SignatureIcon,
+    color: 'text-muted-foreground',
+  },
+  TRASH: {
+    label: msg`Trash`,
+    labelExtended: msg`Document in trash`,
+    icon: Trash2,
     color: 'text-muted-foreground',
   },
   ALL: {
