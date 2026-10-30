@@ -86,6 +86,7 @@ export default function DocumentsPage() {
     [ExtendedDocumentStatus.EXPIRED]: 0,
     [ExtendedDocumentStatus.INBOX]: 0,
     [ExtendedDocumentStatus.ALL]: 0,
+    [ExtendedDocumentStatus.TRASH]: 0,
   });
 
   const [findDocumentSearchParams, setFindDocumentSearchParams] = useQueryStates(documentsSearchParams, {

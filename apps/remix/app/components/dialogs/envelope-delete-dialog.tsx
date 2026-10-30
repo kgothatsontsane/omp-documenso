@@ -127,8 +127,8 @@ export const EnvelopeDeleteDialog = ({
                 <AlertDescription>
                   {type === EnvelopeType.DOCUMENT ? (
                     <Trans>
-                      Please note that this action is <strong>irreversible</strong>. Once confirmed, this document will
-                      be permanently deleted.
+                      Once confirmed, this document will be moved to <strong>trash</strong>. You can restore it from the
+                      Trash filter at any time.
                     </Trans>
                   ) : (
                     <Trans>
@@ -140,30 +140,55 @@ export const EnvelopeDeleteDialog = ({
               ))
               .with(DocumentStatus.PENDING, () => (
                 <AlertDescription>
-                  <p>
-                    <Trans>
-                      Please note that this action is <strong>irreversible</strong>.
-                    </Trans>
-                  </p>
+                  {type === EnvelopeType.DOCUMENT ? (
+                    <>
+                      <p>
+                        <Trans>Once confirmed, the following will occur:</Trans>
+                      </p>
 
-                  <p className="mt-1">
-                    <Trans>Once confirmed, the following will occur:</Trans>
-                  </p>
+                      <ul className="mt-0.5 list-inside list-disc">
+                        <li>
+                          <Trans>Document will be moved to trash and can be restored</Trans>
+                        </li>
+                        <li>
+                          <Trans>Document signing process will be cancelled</Trans>
+                        </li>
+                        <li>
+                          <Trans>All inserted signatures will be voided</Trans>
+                        </li>
+                        <li>
+                          <Trans>All recipients will be notified</Trans>
+                        </li>
+                      </ul>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        <Trans>
+                          Please note that this action is <strong>irreversible</strong>.
+                        </Trans>
+                      </p>
 
-                  <ul className="mt-0.5 list-inside list-disc">
-                    <li>
-                      <Trans>Document will be permanently deleted</Trans>
-                    </li>
-                    <li>
-                      <Trans>Document signing process will be cancelled</Trans>
-                    </li>
-                    <li>
-                      <Trans>All inserted signatures will be voided</Trans>
-                    </li>
-                    <li>
-                      <Trans>All recipients will be notified</Trans>
-                    </li>
-                  </ul>
+                      <p className="mt-1">
+                        <Trans>Once confirmed, the following will occur:</Trans>
+                      </p>
+
+                      <ul className="mt-0.5 list-inside list-disc">
+                        <li>
+                          <Trans>Document will be permanently deleted</Trans>
+                        </li>
+                        <li>
+                          <Trans>Document signing process will be cancelled</Trans>
+                        </li>
+                        <li>
+                          <Trans>All inserted signatures will be voided</Trans>
+                        </li>
+                        <li>
+                          <Trans>All recipients will be notified</Trans>
+                        </li>
+                      </ul>
+                    </>
+                  )}
                 </AlertDescription>
               ))
               .with(P.union(DocumentStatus.COMPLETED, DocumentStatus.REJECTED, DocumentStatus.CANCELLED), () => (
@@ -174,7 +199,7 @@ export const EnvelopeDeleteDialog = ({
 
                   <ul className="mt-0.5 list-inside list-disc">
                     <li>
-                      <Trans>The document will be hidden from your account</Trans>
+                      <Trans>The document will be moved to trash and can be restored</Trans>
                     </li>
                     <li>
                       <Trans>Recipients will still retain their copy of the document</Trans>

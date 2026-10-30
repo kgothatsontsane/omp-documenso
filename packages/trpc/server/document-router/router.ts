@@ -22,6 +22,7 @@ import { getDocumentByTokenRoute } from './get-document-by-token';
 import { getDocumentsByIdsRoute } from './get-documents-by-ids';
 import { getInboxCountRoute } from './get-inbox-count';
 import { redistributeDocumentRoute } from './redistribute-document';
+import { restoreDocumentRoute } from './restore-document';
 import { searchDocumentRoute } from './search-document';
 import { shareDocumentRoute } from './share-document';
 import { updateDocumentRoute } from './update-document';
@@ -33,6 +34,7 @@ export const documentRouter = router({
   create: createDocumentRoute,
   update: updateDocumentRoute,
   delete: deleteDocumentRoute,
+  restore: restoreDocumentRoute,
   duplicate: duplicateDocumentRoute,
   downloadCertificate: downloadDocumentCertificateRoute,
   distribute: distributeDocumentRoute,

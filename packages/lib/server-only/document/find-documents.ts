@@ -329,6 +329,12 @@ export const findDocuments = async ({
           ]),
         ),
       )
+      .with(ExtendedDocumentStatus.TRASH, () =>
+        // Trash is owner-scoped: your own soft-deleted documents. Recipients
+        // who "deleted" a received document only hide it for themselves
+        // (Recipient.documentDeletedAt) — that is not trash.
+        qb.where('Envelope.userId', '=', user.id).where('Envelope.deletedAt', 'is not', null),
+      )
       .exhaustive();
   };
 
@@ -489,6 +495,19 @@ export const findDocuments = async ({
           }
 
           return eb.and([teamDeletedFilter(eb), visibilityFilter(eb), hasExpiredRecipient(eb), eb.or(accessBranches)]);
+        }),
+      )
+      .with(ExtendedDocumentStatus.TRASH, () =>
+        // Trash shows soft-deleted documents the user can see (team-owned
+        // within their visibility, or sent by the team email).
+        qb.where('Envelope.deletedAt', 'is not', null).where((eb) => {
+          const accessBranches = [eb('Envelope.teamId', '=', teamData.id)];
+
+          if (teamEmail) {
+            accessBranches.push(senderEmailIs(eb, teamEmail));
+          }
+
+          return eb.and([visibilityFilter(eb), eb.or(accessBranches)]);
         }),
       )
       .exhaustive();

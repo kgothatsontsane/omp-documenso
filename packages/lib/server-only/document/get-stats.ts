@@ -91,7 +91,9 @@ const setCachedStats = (key: string, value: Record<ExtendedDocumentStatus, numbe
   if (statsCache.size > 500) {
     const now = Date.now();
     for (const [k, e] of statsCache) {
-      if (e.expiresAt < now) statsCache.delete(k);
+      if (e.expiresAt < now) {
+        statsCache.delete(k);
+      }
     }
   }
 
@@ -118,7 +120,15 @@ const cappedCount = async (qb: EnvelopeQueryBuilder): Promise<number> => {
   return Math.min(Number(result.total ?? 0), STATS_COUNT_CAP);
 };
 
-export const getStats = async ({ userId, teamId, period, search = '', folderId, senderIds, team: preloadedTeam }: GetStatsInput) => {
+export const getStats = async ({
+  userId,
+  teamId,
+  period,
+  search = '',
+  folderId,
+  senderIds,
+  team: preloadedTeam,
+}: GetStatsInput) => {
   const cacheKey = statsCacheKey({ userId, teamId, period, search, folderId, senderIds });
   const cached = getCachedStats(cacheKey);
 
@@ -332,7 +342,20 @@ export const getStats = async ({ userId, teamId, period, search = '', folderId, 
 
   // ─── Execute all counts in parallel ──────────────────────────────────
 
-  const [draft, pending, completed, rejected, cancelled, expired, inbox] = await Promise.all([
+  // TRASH: soft-deleted documents the user can see.
+  const trashQuery = buildBaseQuery()
+    .where('Envelope.deletedAt', 'is not', null)
+    .where((eb) => {
+      const accessBranches = [eb('Envelope.teamId', '=', team.id)];
+
+      if (teamEmail) {
+        accessBranches.push(senderEmailIs(eb, teamEmail));
+      }
+
+      return eb.and([visibilityFilter(eb), eb.or(accessBranches)]);
+    });
+
+  const [draft, pending, completed, rejected, cancelled, expired, inbox, trash] = await Promise.all([
     cappedCount(draftQuery),
     cappedCount(pendingQuery),
     cappedCount(completedQuery),
@@ -340,6 +363,7 @@ export const getStats = async ({ userId, teamId, period, search = '', folderId, 
     cappedCount(cancelledQuery),
     cappedCount(expiredQuery),
     inboxQuery ? cappedCount(inboxQuery) : Promise.resolve(0),
+    cappedCount(trashQuery),
   ]);
 
   // `expired` is intentionally excluded from `all` — it overlaps PENDING.
@@ -354,6 +378,7 @@ export const getStats = async ({ userId, teamId, period, search = '', folderId, 
     [ExtendedDocumentStatus.EXPIRED]: expired,
     [ExtendedDocumentStatus.INBOX]: inbox,
     [ExtendedDocumentStatus.ALL]: all,
+    [ExtendedDocumentStatus.TRASH]: trash,
   };
 
   setCachedStats(cacheKey, stats);

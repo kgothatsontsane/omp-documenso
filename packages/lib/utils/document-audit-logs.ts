@@ -355,6 +355,14 @@ export const formatDocumentAuditLogAction = (i18n: I18n, auditLog: TDocumentAudi
       you: msg`You deleted the document`,
       user: msg`${user} deleted the document`,
     }))
+    .with({ type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_RESTORED }, () => ({
+      anonymous: msg({
+        message: `Document restored from trash`,
+        context: `Audit log format`,
+      }),
+      you: msg`You restored the document from trash`,
+      user: msg`${user} restored the document from trash`,
+    }))
     .with({ type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_CANCELLED }, () => ({
       anonymous: msg({
         message: `Document cancelled`,

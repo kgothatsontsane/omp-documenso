@@ -5,6 +5,7 @@ export const ExtendedDocumentStatus = {
   INBOX: 'INBOX',
   ALL: 'ALL',
   EXPIRED: 'EXPIRED',
+  TRASH: 'TRASH',
 } as const;
 
 export type ExtendedDocumentStatus = (typeof ExtendedDocumentStatus)[keyof typeof ExtendedDocumentStatus];

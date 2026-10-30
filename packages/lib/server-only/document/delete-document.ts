@@ -1,6 +1,6 @@
 import { prisma } from '@documenso/prisma';
 import type { DocumentMeta, Envelope, Recipient, User } from '@prisma/client';
-import { DocumentStatus, EnvelopeType, RecipientRole, SendStatus, WebhookTriggerEvents } from '@prisma/client';
+import { EnvelopeType, RecipientRole, SendStatus, WebhookTriggerEvents } from '@prisma/client';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { jobs } from '../../jobs/client';
@@ -8,7 +8,6 @@ import { DOCUMENT_AUDIT_LOG_TYPE } from '../../types/document-audit-logs';
 import { extractDerivedDocumentEmailSettings } from '../../types/document-email';
 import { mapEnvelopeToWebhookDocumentPayload, ZWebhookDocumentSchema } from '../../types/webhook-payload';
 import type { ApiRequestMetadata } from '../../universal/extract-request-metadata';
-import { isDocumentCompleted } from '../../utils/document';
 import { createDocumentAuditLogData } from '../../utils/document-audit-logs';
 import { type EnvelopeIdOptions, unsafeBuildEnvelopeIdQuery } from '../../utils/envelope';
 import { isRecipientEmailValidForSending } from '../../utils/recipients';
@@ -142,52 +141,29 @@ const handleDocumentOwnerDelete = async ({ envelope, user, requestMetadata }: Ha
     meta: envelope.documentMeta,
   });
 
-  // Soft delete completed documents.
-  if (isDocumentCompleted(envelope.status)) {
-    return await prisma.$transaction(async (tx) => {
-      await tx.documentAuditLog.create({
-        data: createDocumentAuditLogData({
-          envelopeId: envelope.id,
-          type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_DELETED,
-          metadata: requestMetadata,
-          data: {
-            type: 'SOFT',
-          },
-        }),
-      });
-
-      return await tx.envelope.update({
-        where: {
-          id: envelope.id,
-        },
-        data: {
-          deletedAt: new Date().toISOString(),
-        },
-      });
-    });
-  }
-
-  // Hard delete draft and pending documents.
+  // Soft delete all documents — drafts and pending included — so they are
+  // recoverable from trash and the audit trail survives. Previously drafts
+  // and pending documents were hard-deleted, which destroyed the envelope
+  // AND its audit logs (the audit log row is cascade-deleted with the
+  // envelope), leaving no record of what was removed.
   const deletedEnvelope = await prisma.$transaction(async (tx) => {
-    // Currently redundant since deleting a document will delete the audit logs.
-    // However may be useful if we disassociate audit logs and documents if required.
     await tx.documentAuditLog.create({
       data: createDocumentAuditLogData({
         envelopeId: envelope.id,
         type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_DELETED,
         metadata: requestMetadata,
         data: {
-          type: 'HARD',
+          type: 'SOFT',
         },
       }),
     });
 
-    return await tx.envelope.delete({
+    return await tx.envelope.update({
       where: {
         id: envelope.id,
-        status: {
-          not: DocumentStatus.COMPLETED,
-        },
+      },
+      data: {
+        deletedAt: new Date().toISOString(),
       },
     });
   });
@@ -200,9 +176,9 @@ const handleDocumentOwnerDelete = async ({ envelope, user, requestMetadata }: Ha
     return deletedEnvelope;
   }
 
-  // Enqueue cancellation emails as a background job. The envelope (and its
-  // documentMeta) is hard-deleted above, so the job can't look it up later —
-  // pass a self-contained payload with the recipients to notify.
+  // Enqueue cancellation emails as a background job. The payload is
+  // self-contained (recipients, title, sender) so the job never needs to
+  // look the envelope up later.
   const recipientsToNotify = envelope.recipients
     .filter(
       (recipient) =>

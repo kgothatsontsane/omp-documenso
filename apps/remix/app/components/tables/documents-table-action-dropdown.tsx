@@ -13,6 +13,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@documenso/ui/primitives/dropdown-menu';
+import { useToast } from '@documenso/ui/primitives/use-toast';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
@@ -29,6 +30,7 @@ import {
   Loader,
   MoreHorizontal,
   Pencil,
+  RotateCcw,
   Share,
   Trash2,
   XCircle,
@@ -57,6 +59,7 @@ export const DocumentsTableActionDropdown = ({ row, onMoveDocument }: DocumentsT
   const team = useCurrentTeam();
 
   const { _ } = useLingui();
+  const { toast } = useToast();
   const trpcUtils = trpcReact.useUtils();
 
   const [isRenameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -95,6 +98,70 @@ export const DocumentsTableActionDropdown = ({ row, onMoveDocument }: DocumentsT
 
   const documentsPath = formatDocumentsPath(team.url);
   const formatPath = `${documentsPath}/${row.envelopeId}/edit`;
+
+  const isTrashed = Boolean(row.deletedAt);
+
+  const restoreMutation = trpcReact.document.restore.useMutation({
+    onSuccess: async () => {
+      toast({
+        title: _(msg`Document restored`),
+        description: _(msg`"${row.title}" has been restored from trash`),
+      });
+
+      await trpcUtils.document.findDocumentsInternal.invalidate();
+    },
+    onError: () => {
+      toast({
+        title: _(msg`Could not restore document`),
+        description: _(msg`This document could not be restored at this time. Please try again.`),
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const onRestore = () => {
+    void restoreMutation.mutateAsync({ documentId: row.id }).catch(() => {
+      // Handled in onError.
+    });
+  };
+
+  // Trashed rows get a minimal menu: restore (and download). Other actions
+  // (edit, resend, share) operate on live documents and are hidden until
+  // the document is restored.
+  if (isTrashed) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger data-testid="document-table-action-btn">
+          <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent className="w-52" align="start" forceMount>
+          <DropdownMenuLabel>
+            <Trans>Action</Trans>
+          </DropdownMenuLabel>
+
+          <DropdownMenuItem disabled={restoreMutation.isPending} onClick={onRestore} data-testid="document-restore-btn">
+            {restoreMutation.isPending ? <Loader className="mr-2 h-4 w-4" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+            <Trans>Restore</Trans>
+          </DropdownMenuItem>
+
+          <EnvelopeDownloadDialog
+            envelopeId={row.envelopeId}
+            envelopeStatus={row.status}
+            isLegacy={row.internalVersion === 1}
+            trigger={
+              <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                <div>
+                  <Download className="mr-2 h-4 w-4" />
+                  <Trans>Download</Trans>
+                </div>
+              </DropdownMenuItem>
+            }
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
 
   return (
     <DropdownMenu>

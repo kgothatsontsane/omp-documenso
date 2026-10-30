@@ -91,6 +91,7 @@ const SELECTABLE_STATUSES: ExtendedDocumentStatus[] = [
   ExtendedDocumentStatus.DRAFT,
   ExtendedDocumentStatus.REJECTED,
   ExtendedDocumentStatus.EXPIRED,
+  ExtendedDocumentStatus.TRASH,
 ];
 
 const formatStatsCount = (count: number) => {

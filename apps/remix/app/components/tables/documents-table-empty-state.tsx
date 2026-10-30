@@ -1,7 +1,7 @@
 import { ExtendedDocumentStatus } from '@documenso/prisma/types/extended-document-status';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { Bird, CheckCircle2, TimerOff, XCircle } from 'lucide-react';
+import { Bird, CheckCircle2, TimerOff, Trash2, XCircle } from 'lucide-react';
 import { match } from 'ts-pattern';
 
 export type DocumentsTableEmptyStateProps = { status: ExtendedDocumentStatus };
@@ -38,6 +38,11 @@ export const DocumentsTableEmptyState = ({ status }: DocumentsTableEmptyStatePro
       title: msg`No expired documents`,
       message: msg`There are no documents with expired signing links. You can redistribute a document to renew its expiration.`,
       icon: TimerOff,
+    }))
+    .with(ExtendedDocumentStatus.TRASH, () => ({
+      title: msg`Trash is empty`,
+      message: msg`Documents you delete are moved here and can be restored at any time.`,
+      icon: Trash2,
     }))
     .with(ExtendedDocumentStatus.ALL, () => ({
       title: msg`We're all empty`,

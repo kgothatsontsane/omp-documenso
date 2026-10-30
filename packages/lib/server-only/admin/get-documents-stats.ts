@@ -6,6 +6,7 @@ export const getDocumentStats = async () => {
   const counts = await prisma.envelope.groupBy({
     where: {
       type: EnvelopeType.DOCUMENT,
+      deletedAt: null,
     },
     by: ['status'],
     _count: {
@@ -13,7 +14,7 @@ export const getDocumentStats = async () => {
     },
   });
 
-  const stats: Record<Exclude<ExtendedDocumentStatus, 'INBOX' | 'EXPIRED'>, number> = {
+  const stats: Record<Exclude<ExtendedDocumentStatus, 'INBOX' | 'EXPIRED' | 'TRASH'>, number> = {
     [ExtendedDocumentStatus.DRAFT]: 0,
     [ExtendedDocumentStatus.PENDING]: 0,
     [ExtendedDocumentStatus.COMPLETED]: 0,

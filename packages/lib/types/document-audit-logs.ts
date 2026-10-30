@@ -31,6 +31,7 @@ export const ZDocumentAuditLogTypeSchema = z.enum([
   'DOCUMENT_COMPLETED', // When the document is sealed and fully completed.
   'DOCUMENT_CREATED', // When the document is created.
   'DOCUMENT_DELETED', // When the document is soft deleted.
+  'DOCUMENT_RESTORED', // When the document is restored from trash.
   'DOCUMENT_CANCELLED', // When a privileged member cancels the document.
   'DOCUMENT_FIELDS_AUTO_INSERTED', // When a field is auto inserted during send due to default values (radio/dropdown/checkbox).
   'DOCUMENT_FIELD_INSERTED', // When a field is inserted (signed/approved/etc) by a recipient.
@@ -296,6 +297,14 @@ export const ZDocumentAuditLogEventDocumentDeletedSchema = z.object({
   data: z.object({
     type: z.enum(['SOFT', 'HARD']),
   }),
+});
+
+/**
+ * Event: Document restored from trash.
+ */
+export const ZDocumentAuditLogEventDocumentRestoredSchema = z.object({
+  type: z.literal(DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_RESTORED),
+  data: z.object({}),
 });
 
 /**
@@ -839,6 +848,7 @@ export const ZDocumentAuditLogSchema = ZDocumentAuditLogBaseSchema.and(
     ZDocumentAuditLogEventDocumentCompletedSchema,
     ZDocumentAuditLogEventDocumentCreatedSchema,
     ZDocumentAuditLogEventDocumentDeletedSchema,
+    ZDocumentAuditLogEventDocumentRestoredSchema,
     ZDocumentAuditLogEventDocumentCancelledSchema,
     ZDocumentAuditLogEventDocumentMovedToTeamSchema,
     ZDocumentAuditLogEventDocumentDelegatedOwnerCreatedSchema,

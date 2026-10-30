@@ -23,6 +23,7 @@ export const ZFindDocumentsInternalResponseSchema = ZFindResultResponse.extend({
     [ExtendedDocumentStatus.EXPIRED]: z.number(),
     [ExtendedDocumentStatus.INBOX]: z.number(),
     [ExtendedDocumentStatus.ALL]: z.number(),
+    [ExtendedDocumentStatus.TRASH]: z.number(),
   }),
 });
 
