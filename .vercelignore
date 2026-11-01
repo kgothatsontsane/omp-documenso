@@ -1,0 +1,13 @@
+.github
+docs
+*.md
+**/*.md
+**/*.test.*
+**/*.spec.*
+coverage
+.husky
+.vscode
+.idea
+*.log
+.turbo
+.DS_Store

@@ -25,8 +25,12 @@ npm run translate --prefix ../../ || echo "[Build]: translate step failed, using
 # isn't on PATH for the generator subprocess. Regenerate it explicitly so the
 # types (DocumentStatus, EnvelopeType, ...) resolve for the typecheck below.
 export PATH="$PWD/../../node_modules/.bin:$PATH"
-echo "[Build]: Regenerating Prisma client"
-prisma generate --schema ../../packages/prisma/schema.prisma
+if [ ! -d "../../node_modules/.prisma/client" ] || [ ! -f "../../node_modules/.prisma/client/index.d.ts" ]; then
+  echo "[Build]: Regenerating Prisma client"
+  prisma generate --schema ../../packages/prisma/schema.prisma
+else
+  echo "[Build]: Using cached Prisma client"
+fi
 
 echo "[Build]: Building app"
 npm run build:app

@@ -10,8 +10,6 @@
       "includeFiles": "api/build/client/**"
     }
   },
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/api" }
-  ]
+  "routes": [{ "handle": "filesystem" }, { "src": "/(.*)", "dest": "/api" }],
+  "ignoreCommand": "[[ \"$VERCEL_GIT_COMMIT_REF\" =~ ^dependabot/ ]] && exit 0; git diff HEAD^ HEAD --quiet -- . ':!*.md' ':!docs/**' ':!.github/**' ':!**/*.test.*' ':!**/*.spec.*' 2>/dev/null; [ $? -eq 0 ] && exit 0 || exit 1"
 }
